@@ -12,7 +12,8 @@ The project is inspired by BentoPDF in both philosophy and workflow: upload a fi
 - Light and dark mode
 
 # Screenshots
-![Alt text for the image](/examples/Drop%20field.jpg)
+![Drop field for files](/examples/Drop%20field.jpg)
+![Book cover](/examples/Book%20cover.jpg)
 
 # Key principles
 - Uploaded files are processed entirely in memory and are never stored on disk. Once a request completes, no files or metadata remain on the server.
