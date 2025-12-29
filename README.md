@@ -11,6 +11,8 @@ The project is inspired by BentoPDF in both philosophy and workflow: upload a fi
 - Preview how the book metadata will appear in OPDS-based clients before importing it into a library or reader.
 - Light and dark mode
 
+# Screenshots
+![Alt text for the image](/examples/Drop%20field.jpg)
 
 # Key principles
 - Uploaded files are processed entirely in memory and are never stored on disk. Once a request completes, no files or metadata remain on the server.
