@@ -37,3 +37,6 @@ Upload an EPUB file
 
 # Deployment
 The app is packaged as a Docker container and is intended to be run behind a reverse proxy or directly via a mapped port. No volumes are required, as the application does not store files.
+
+[For docker see docker-compose.yml](/examples/docker-compose.yml)
+
