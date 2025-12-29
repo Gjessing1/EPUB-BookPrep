@@ -14,7 +14,7 @@ The project is inspired by BentoPDF in both philosophy and workflow: upload a fi
 # Screenshots
 ![Drop field for files](/examples/Drop%20field.jpg)
 ![Book cover](/examples/Book%20cover.jpg)
-
+![Search for metadata by ISBN or title](/examples/ISBN-lookup.jpg)
 # Key principles
 - Uploaded files are processed entirely in memory and are never stored on disk. Once a request completes, no files or metadata remain on the server.
 - The app only modifies EPUB metadata (OPF and related fields). Book content, structure, and reading experience are left untouched.
