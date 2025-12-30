@@ -31,7 +31,6 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
 
 ## Screenshots
 <p align="center">
-  <img src="/examples/Drop%20field.jpg" alt="Desktop view" width="40%">
   <img src="/examples/Drop%20field.jpg" alt="Mobile view" width="30%">
 </p>
 
