@@ -535,55 +535,30 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
   }
 
   // Handle title and subtitle
-  // For EPUB 2: Only update dc:title without refinements
-  // For EPUB 3: Use title-type refinements
-  if (!isEpub2) {
-    // Remove existing title-type refinements (EPUB 3 only)
-    meta.meta = meta.meta.filter(m => 
-      !(m.$?.property === "title-type")
-    );
-  }
+  // Combine into a single dc:title for maximum reader compatibility
+  // While EPUB 3 spec allows multiple dc:title with title-type refinements,
+  // real-world readers don't support this properly
+  
+  // Clean up any existing title-type refinements (they won't be used)
+  meta.meta = meta.meta.filter(m => 
+    !(m.$?.property === "title-type")
+  );
   
   if (updates.title) {
     const sanitizedTitle = sanitizeMetadataString(updates.title);
     
-    if (isEpub2) {
-      // EPUB 2: Simple title(s) without refinements
-      const titles = [sanitizedTitle];
-      if (updates.subtitle) {
-        // For EPUB 2, combine title and subtitle or just add subtitle separately
-        titles.push(sanitizeMetadataString(updates.subtitle));
+    // Combine title and subtitle into single dc:title
+    // Format: "Title: Subtitle" (colon separator is conventional)
+    let combinedTitle = sanitizedTitle;
+    if (updates.subtitle) {
+      const sanitizedSubtitle = sanitizeMetadataString(updates.subtitle);
+      if (sanitizedSubtitle) {
+        combinedTitle = `${sanitizedTitle}: ${sanitizedSubtitle}`;
       }
-      meta["dc:title"] = titles;
-    } else {
-      // EPUB 3: Title with refinements
-      const titles = [];
-      
-      // Main title
-      titles.push({
-        _: sanitizedTitle,
-        $: { id: "main-title" }
-      });
-      meta.meta.push({
-        $: { refines: "#main-title", property: "title-type" },
-        _: "main"
-      });
-      
-      // Subtitle if provided
-      if (updates.subtitle) {
-        const sanitizedSubtitle = sanitizeMetadataString(updates.subtitle);
-        titles.push({
-          _: sanitizedSubtitle,
-          $: { id: "subtitle" }
-        });
-        meta.meta.push({
-          $: { refines: "#subtitle", property: "title-type" },
-          _: "subtitle"
-        });
-      }
-      
-      meta["dc:title"] = titles;
     }
+    
+    // Single dc:title for both EPUB 2 and EPUB 3
+    meta["dc:title"] = [combinedTitle];
   }
 
   // Update basic metadata with sanitization
