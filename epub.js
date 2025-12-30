@@ -577,30 +577,34 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
 
   // Handle authors - support both array format and single string (backward compat)
   // Preserve file-as and role attributes (Task 7B)
+  // STRICT EPUB 2/3 SEPARATION:
+  // - EPUB 3: Use <meta refines> for role/file-as, NO opf:* attributes on dc:creator
+  // - EPUB 2: Use opf:role/opf:file-as attributes, NO <meta refines>
   if (updates.authors && Array.isArray(updates.authors) && updates.authors.length > 0) {
-    // Remove old file-as and role refinements for creators (only for EPUB 3)
-    if (!isEpub2) {
-      meta.meta = meta.meta?.filter(m => 
-        !(m.$?.property === "file-as" && m.$?.refines?.startsWith("#creator")) &&
-        !(m.$?.property === "role" && m.$?.refines?.startsWith("#creator"))
-      ) || [];
-    }
     
-    meta["dc:creator"] = updates.authors.map((author, idx) => {
-      const authorName = sanitizeMetadataString(typeof author === 'string' ? author : author.name);
-      const entry = {
-        _: authorName,
-        $: { id: `creator-${idx}` }
-      };
-      // Preserve opf:role for EPUB 2 compatibility (Task 7D)
-      if (typeof author === 'object' && author.role) {
-        entry.$["opf:role"] = author.role;
-      }
-      return entry;
-    });
-    
-    // Add file-as and role refinements if provided (Task 7B) - EPUB 3 only
     if (!isEpub2) {
+      // EPUB 3: Remove ALL existing role and file-as refinements for creators
+      // (clean up any orphaned refinements regardless of their ID pattern)
+      meta.meta = meta.meta?.filter(m => {
+        const prop = m.$?.property;
+        const refines = m.$?.refines;
+        // Remove any role or file-as refinement that might be for a creator
+        if ((prop === "file-as" || prop === "role") && refines) {
+          return false;
+        }
+        return true;
+      }) || [];
+      
+      // Create dc:creator elements with ONLY id attribute (no opf:* attributes for EPUB 3)
+      meta["dc:creator"] = updates.authors.map((author, idx) => {
+        const authorName = sanitizeMetadataString(typeof author === 'string' ? author : author.name);
+        return {
+          _: authorName,
+          $: { id: `creator-${idx}` }
+        };
+      });
+      
+      // Add file-as and role as <meta refines> elements (EPUB 3 way)
       updates.authors.forEach((author, idx) => {
         if (typeof author === 'object') {
           if (author.fileAs) {
@@ -609,8 +613,7 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
               _: sanitizeMetadataString(author.fileAs)
             });
           }
-          if (author.role && author.role !== 'aut') {
-            // Add EPUB 3 role refinement
+          if (author.role) {
             meta.meta.push({
               $: { refines: `#creator-${idx}`, property: "role", scheme: "marc:relators" },
               _: author.role
@@ -618,14 +621,48 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
           }
         }
       });
+      
+    } else {
+      // EPUB 2: Use opf:role and opf:file-as attributes on dc:creator
+      // Do NOT add <meta refines> elements
+      meta["dc:creator"] = updates.authors.map((author, idx) => {
+        const authorName = sanitizeMetadataString(typeof author === 'string' ? author : author.name);
+        const entry = {
+          _: authorName,
+          $: {}
+        };
+        
+        // Add opf:role attribute if role is provided
+        if (typeof author === 'object' && author.role) {
+          entry.$["opf:role"] = author.role;
+        }
+        
+        // Add opf:file-as attribute if fileAs is provided
+        if (typeof author === 'object' && author.fileAs) {
+          entry.$["opf:file-as"] = sanitizeMetadataString(author.fileAs);
+        }
+        
+        return entry;
+      });
     }
+    
   } else if (updates.author) {
     // Backward compatibility: single author string
     const sanitizedAuthor = sanitizeMetadataString(updates.author);
-    meta["dc:creator"] = [{
-      _: sanitizedAuthor,
-      $: { id: "creator-0" }
-    }];
+    
+    if (!isEpub2) {
+      // EPUB 3: creator with id, no opf:* attributes
+      meta["dc:creator"] = [{
+        _: sanitizedAuthor,
+        $: { id: "creator-0" }
+      }];
+    } else {
+      // EPUB 2: creator without id (or with opf:* if needed)
+      meta["dc:creator"] = [{
+        _: sanitizedAuthor,
+        $: {}
+      }];
+    }
   }
 
   // Handle identifier - PRESERVE existing identifiers, only add/update ISBN (Task 7A)
