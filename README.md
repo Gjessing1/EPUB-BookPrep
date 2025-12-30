@@ -34,7 +34,7 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
 - Preview how metadata will appear in OPDS-based clients before importing into a library or reader
 - Light and dark mode support
 
-## Screenshots
+## Screenshots (Mobile view)
 <p align="left">
   <img src="/examples/First-example.png" alt="Mobile view" width="18%">
   <img src="/examples/Second-example.png" alt="Mobile view" width="18%">
