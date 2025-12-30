@@ -11,11 +11,13 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
 *The project is inspired by [BentoPDF](https://github.com/mgmeyers/bentopdf) in both philosophy and workflow.*
 
 <p>
+  <img src="https://img.shields.io/github/v/release/gjessing1/epub-bookprep" alt="Latest release">
   <img src="https://img.shields.io/github/stars/gjessing1/epub-bookprep?style=social" alt="GitHub stars">
   <a href="https://buymeacoffee.com/gjessing">
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="80" style="vertical-align: middle;">
   </a>
 </p>
+
 
 
 ## Features
@@ -71,6 +73,13 @@ The application is distributed as a Docker container and can be run either behin
 - The application listens on port 3007 by default.
 - Access it via http://localhost:3007, or expose it through a reverse proxy such as Caddy, Traefik, or Nginx
 
+## Like the project?
+Please consider buying me a coffe, i really do drink it alot!
+<p>
+  <a href="https://buymeacoffee.com/gjessing">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="80" style="vertical-align: middle;">
+  </a>
+</p>
 
 
 
