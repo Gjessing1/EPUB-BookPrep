@@ -1,1 +1,8 @@
+services:
+  epub-bookprep:
+    image: ghcr.io/gjessing1/epub-bookprep:latest
+    container_name: epub-bookprep
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
 
