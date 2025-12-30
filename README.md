@@ -5,6 +5,9 @@
 # EPUB BookPrep
 EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing clean, standards-compliant EPUB metadata. Upload a file, make precise edits, and download a corrected EPUB, no accounts, no background processing, and no files stored on the server.
 
+- Simple install with Docker image available.
+- No configuration necessary
+
 *The project is inspired by [BentoPDF](https://github.com/mgmeyers/bentopdf) in both philosophy and workflow.*
 
 <p>
@@ -30,8 +33,11 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
 - Light and dark mode support
 
 ## Screenshots
-<p align="center">
-  <img src="/examples/Drop%20field.jpg" alt="Mobile view" width="30%">
+<p align="left">
+  <img src="/examples/First-example.png" alt="Mobile view" width="20%">
+  <img src="/examples/Second-example.png" alt="Mobile view" width="20%">
+  <img src="/examples/Third-example.png" alt="Mobile view" width="20%">
+  <img src="/examples/Fourth-example.png" alt="Mobile view" width="20%">
 </p>
 
 ## Key principles
