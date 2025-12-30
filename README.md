@@ -32,6 +32,7 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
   - strip HTML from descriptions
   - deduplicate subjects
 - Preview how metadata will appear in OPDS-based clients before importing into a library or reader
+- EPUB 3 editor with EPUB 2 backward compatability
 - Light and dark mode support
 
 ## Screenshots (Mobile view)
@@ -64,7 +65,6 @@ Upload an EPUB file
 - Import the result into your library or reader of choice
 
 ## Deployment
-
 The application is distributed as a Docker container and can be run either behind a reverse proxy or directly via a mapped port. No volumes are required, as uploaded files are processed entirely in memory and never persisted.
 
 - Download the example compose file: [`docker-compose.yml`](/examples/docker-compose.yml)
