@@ -33,6 +33,7 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
   - deduplicate subjects
 - Preview how metadata will appear in OPDS-based clients before importing into a library or reader
 - EPUB 3 editor with EPUB 2 backward compatability
+- Extremely lightweight: the Docker container uses under 30 MB of host memory, as all processing happens in the browser.
 - Light and dark mode support
 
 ## Screenshots (Mobile view)
