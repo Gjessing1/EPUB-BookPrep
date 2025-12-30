@@ -1,0 +1,328 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Lars Gjessing">
+  <meta name="keywords" content="HTML, CSS, JavaScript, EPUB, Metadata, Editor, epub editor, change ebook cover, online epub tool, compress epub images, isbn lookup">
+  <meta name="description" content="Free selfhosted stateless EPUB editor. Clean metadata, fix language codes, swap covers, and optimize images. Supports ISBN lookup and EPUB 2/3 compatibility.">
+  <title>EPUB BookPrep</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>📚 EPUB BookPrep</h1>
+    <p>Clean, edit, and enhance your EPUB metadata</p>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode">
+      🌙
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">📖</div>
+      <h3>Drop your EPUB file here</h3>
+      <p>or click to browse</p>
+      <input type="file" id="file" accept=".epub">
+    </div>
+  </div>
+
+  <!-- Warnings Banner -->
+  <div id="warningsBanner" class="warnings-banner hidden"></div>
+
+  <!-- Session Expiry Warning Banner -->
+  <div id="sessionWarningBanner" class="session-warning-banner hidden">
+    <span class="session-warning-text">⚠️ Your session will expire in 5 minutes. Please download your EPUB before the session ends.</span>
+    <button class="session-warning-dismiss" onclick="dismissSessionWarning()">Dismiss</button>
+  </div>
+
+  <div id="editor" class="hidden">
+    <div class="card">
+      <div class="editor-grid">
+        <div class="cover-section">
+          <div class="cover-preview" id="coverPreview">
+            <div class="cover-placeholder">No cover image</div>
+          </div>
+          <div class="cover-actions">
+            <button class="btn btn-secondary" onclick="document.getElementById('coverInput').click()" title="Upload custom cover image">
+              🖼️ Upload
+            </button>
+            <button class="btn btn-secondary" onclick="showCoverSearch()" title="Search for cover images online">
+              🔍 Search
+            </button>
+            <button class="btn btn-secondary" onclick="optimizeCover()" id="optimizeBtn"
+  title="Resize to max 1600×2400 (keeps aspect ratio), convert PNG/transparent images to JPEG with white background, quality ≈ 90% (lossy) – reduces file size. Preview applied; original preserved in session until download.">
+              ⚡ Compress
+            </button>
+          </div>
+          <input type="file" id="coverInput" accept="image/*">
+          
+          <!-- OPDS Preview -->
+          <div class="opds-preview">
+            <div class="opds-preview-header">📚 OPDS Preview</div>
+            <div class="opds-preview-content" id="opdsPreview">
+              <div class="opds-item">
+                <div class="opds-cover-mini">
+                  <div class="opds-cover-placeholder">?</div>
+                </div>
+                <div class="opds-details">
+                  <div class="opds-title">Book Title</div>
+                  <div class="opds-author">Author Name</div>
+                  <div class="opds-meta">Series • Publisher • 2024</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-header">
+            <div class="section-title">📝 Basic Information</div>
+            <div class="action-buttons">
+              <button class="btn btn-secondary btn-small" onclick="normalizeMetadata()" title="Clean whitespace, fix dates, strip HTML, dedupe subjects">
+                ✨ Clean Data
+              </button>
+              <button class="btn btn-secondary btn-small" onclick="resetMetadata()" title="Restore original metadata fields from uploaded file">
+                ↩️ Reset Metadata
+              </button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>
+              Title * 
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:title - The main title of the book as it will appear in readers and library systems">ⓘ</span>
+            </label>
+            <input id="title" placeholder="Enter book title" oninput="updateDiffPreview()">
+          </div>
+
+          <div class="form-group">
+            <label>
+              Subtitle 
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:title with title-type='subtitle' - Optional subtitle shown below the main title">ⓘ</span>
+            </label>
+            <input id="subtitle" placeholder="Enter subtitle (optional)" oninput="updateDiffPreview()">
+          </div>
+
+          <div class="form-group">
+            <label>
+              Author * 
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:creator - The primary author(s) of the book. Multiple authors can be comma-separated.">ⓘ</span>
+            </label>
+            <input id="author" placeholder="Enter author name" oninput="updateDiffPreview()">
+          </div>
+
+          <div class="form-group">
+            <label>
+              Contributors 
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:contributor - Secondary contributors like editors, translators, illustrators. Comma-separated.">ⓘ</span>
+            </label>
+            <input id="contributors" placeholder="e.g., John Translator, Jane Editor" oninput="updateDiffPreview()">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                Language 
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:language - BCP 47 language code. Use 2-letter codes like 'en', 'nb', 'es'. 3-letter codes (e.g., 'eng') will be auto-converted.">ⓘ</span>
+              </label>
+              <div class="language-input-group">
+                <input id="language" placeholder="e.g., en, nb, es" oninput="validateLanguage(); updateDiffPreview()">
+                <select id="languageSelect" onchange="selectLanguage(this.value)" aria-label="Select language">
+                  <option value="">Select...</option>
+                  <option value="en">en - English</option>
+                  <option value="es">es - Spanish</option>
+                  <option value="fr">fr - French</option>
+                  <option value="de">de - German</option>
+                  <option value="it">it - Italian</option>
+                  <option value="pt">pt - Portuguese</option>
+                  <option value="ru">ru - Russian</option>
+                  <option value="ja">ja - Japanese</option>
+                  <option value="zh">zh - Chinese</option>
+                  <option value="ko">ko - Korean</option>
+                  <option value="ar">ar - Arabic</option>
+                  <option value="hi">hi - Hindi</option>
+                  <option value="nl">nl - Dutch</option>
+                  <option value="sv">sv - Swedish</option>
+                  <option value="no">no - Norwegian</option>
+                  <option value="nb">nb - Norwegian Bokmål</option>
+                  <option value="nn">nn - Norwegian Nynorsk</option>
+                  <option value="da">da - Danish</option>
+                  <option value="fi">fi - Finnish</option>
+                  <option value="pl">pl - Polish</option>
+                  <option value="cs">cs - Czech</option>
+                  <option value="el">el - Greek</option>
+                  <option value="tr">tr - Turkish</option>
+                  <option value="he">he - Hebrew</option>
+                  <option value="id">id - Indonesian</option>
+                  <option value="ms">ms - Malay</option>
+                  <option value="th">th - Thai</option>
+                  <option value="vi">vi - Vietnamese</option>
+                  <option value="uk">uk - Ukrainian</option>
+                  <option value="ro">ro - Romanian</option>
+                  <option value="hu">hu - Hungarian</option>
+                  <option value="ca">ca - Catalan</option>
+                  <option value="hr">hr - Croatian</option>
+                  <option value="sr">sr - Serbian</option>
+                  <option value="sk">sk - Slovak</option>
+                  <option value="bg">bg - Bulgarian</option>
+                  <option value="lt">lt - Lithuanian</option>
+                  <option value="lv">lv - Latvian</option>
+                  <option value="et">et - Estonian</option>
+                  <option value="sl">sl - Slovenian</option>
+                  <option value="is">is - Icelandic</option>
+                  <option value="ga">ga - Irish</option>
+                  <option value="cy">cy - Welsh</option>
+                  <option value="eu">eu - Basque</option>
+                  <option value="gl">gl - Galician</option>
+                  <option value="af">af - Afrikaans</option>
+                  <option value="sq">sq - Albanian</option>
+                  <option value="be">be - Belarusian</option>
+                  <option value="bs">bs - Bosnian</option>
+                  <option value="mk">mk - Macedonian</option>
+                  <option value="mt">mt - Maltese</option>
+                </select>
+              </div>
+              <div id="languageWarning" class="field-warning hidden"></div>
+            </div>
+            <div class="form-group">
+              <label>
+                Published Date 
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:date - Publication date in YYYY-MM-DD or YYYY format">ⓘ</span>
+              </label>
+              <div class="date-input-wrapper">
+                <input id="date" type="text" placeholder="e.g., 2024-01-15 or 2024" oninput="updateDiffPreview()">
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title">🔍 Lookup & Enrichment</div>
+
+          <div class="lookup-group">
+            <div class="form-group">
+              <label>
+                ISBN 
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:identifier - International Standard Book Number. Will be saved with proper EPUB 3 identifier-type metadata.">ⓘ</span>
+              </label>
+              <input id="identifier" placeholder="Enter ISBN" oninput="updateDiffPreview()">
+            </div>
+            <button class="lookup-btn" id="lookupBtn" onclick="lookupISBN()">
+              <span id="lookupText">Lookup</span>
+            </button>
+          </div>
+
+          <div class="lookup-group">
+            <div class="form-group">
+              <label>Or search by title</label>
+              <input id="titleSearch" placeholder="Uses title field above if blank">
+            </div>
+            <button class="lookup-btn" id="searchBtn" onclick="searchByTitle()">
+              <span id="searchText">Search</span>
+            </button>
+          </div>
+
+          <div class="section-title">📚 Additional Details</div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                Publisher 
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:publisher - The publishing company or organization">ⓘ</span>
+              </label>
+              <input id="publisher" placeholder="Publisher name" oninput="updateDiffPreview()">
+            </div>
+            <div class="form-group">
+              <label>
+                Rights 
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:rights - Copyright and licensing information">ⓘ</span>
+              </label>
+              <input id="rights" placeholder="Copyright information" oninput="updateDiffPreview()">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                Series/Collection 
+                <span class="field-hint tooltip-trigger" data-tooltip="belongs-to-collection - The name of the book series this belongs to (EPUB 3 meta property)">ⓘ</span>
+              </label>
+              <input id="series" placeholder="e.g., The Lord of the Rings" oninput="updateDiffPreview()">
+            </div>
+            <div class="form-group">
+              <label>
+                Position in Series 
+                <span class="field-hint tooltip-trigger" data-tooltip="group-position - The book's position within the series (e.g., 1, 2, 3)">ⓘ</span>
+              </label>
+              <input id="seriesIndex" type="number" min="1" step="1" placeholder="1" oninput="updateDiffPreview()">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Summary 
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:description - Book synopsis or description. HTML will be stripped during normalization.">ⓘ</span>
+            </label>
+            <textarea id="description" rows="4" placeholder="Book summary or description" oninput="updateDiffPreview()"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Categories 
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:subject - Genre and subject tags, comma-separated. Used by readers for organization.">ⓘ</span>
+            </label>
+            <input id="subjects" placeholder="Fiction, Science Fiction, Adventure" oninput="updateDiffPreview()">
+          </div>
+
+          <hr class="changes-divider">
+
+          <div id="diffPreview" class="hidden"></div>
+
+          <button class="btn btn-primary" onclick="downloadEPUB()" id="downloadBtn">
+            <span id="downloadText">💾 Download Cleaned EPUB</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <p>Made by Gjessing | <a href="https://github.com/Gjessing1/EPUB-BookPrep" target="_blank" rel="noopener noreferrer">Repository available on GitHub</a></p>
+</footer>
+
+<!-- Modal for metadata candidates -->
+<div id="candidatesModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>📖 Select Metadata Source</h3>
+    </div>
+    <div id="candidatesList" class="candidates-list"></div>
+    <div class="modal-footer sticky-footer">
+      <button class="btn btn-secondary" onclick="closeCandidatesModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal for cover search -->
+<div id="coverModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="coverModalTitle">🖼️ Select Cover Image</h3>
+    </div>
+    <div id="coversList" class="covers-grid"></div>
+    <div class="modal-footer sticky-footer">
+      <button class="btn btn-secondary" onclick="closeCoverModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip Element -->
+<div id="tooltip" class="tooltip"></div>
+
+<script src="main.js"></script>
+
+</body>
+</html>
