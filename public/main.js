@@ -631,15 +631,16 @@ function selectiveApply(idx) {
   const candidate = window.currentCandidates[idx];
   const fields = [];
   
-  if (candidate.title) fields.push({ key: 'title', label: 'Title', value: candidate.title });
-  if (candidate.author) fields.push({ key: 'author', label: 'Author', value: candidate.author });
-  // Only show ISBN if it exists
-  if (candidate.isbn) fields.push({ key: 'identifier', label: 'ISBN', value: candidate.isbn });
-  if (candidate.publisher) fields.push({ key: 'publisher', label: 'Publisher', value: candidate.publisher });
-  if (candidate.date) fields.push({ key: 'date', label: 'Date', value: candidate.date });
-  if (candidate.language) fields.push({ key: 'language', label: 'Language', value: candidate.language });
-  if (candidate.description) fields.push({ key: 'description', label: 'Description', value: candidate.description });
-  if (candidate.subjects) fields.push({ key: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
+  // Store both 'key' (HTML element ID) and 'prop' (candidate property name)
+  if (candidate.title) fields.push({ key: 'title', prop: 'title', label: 'Title', value: candidate.title });
+  if (candidate.author) fields.push({ key: 'author', prop: 'author', label: 'Author', value: candidate.author });
+  // ISBN: element ID is 'identifier', but candidate property is 'isbn'
+  if (candidate.isbn) fields.push({ key: 'identifier', prop: 'isbn', label: 'ISBN', value: candidate.isbn });
+  if (candidate.publisher) fields.push({ key: 'publisher', prop: 'publisher', label: 'Publisher', value: candidate.publisher });
+  if (candidate.date) fields.push({ key: 'date', prop: 'date', label: 'Date', value: candidate.date });
+  if (candidate.language) fields.push({ key: 'language', prop: 'language', label: 'Language', value: candidate.language });
+  if (candidate.description) fields.push({ key: 'description', prop: 'description', label: 'Description', value: candidate.description });
+  if (candidate.subjects) fields.push({ key: 'subjects', prop: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
   
   const list = document.getElementById('candidatesList');
   list.innerHTML = `
@@ -647,7 +648,7 @@ function selectiveApply(idx) {
       <h4>Select fields to apply:</h4>
       ${fields.map(f => `
         <label class="field-checkbox">
-          <input type="checkbox" value="${f.key}" checked>
+          <input type="checkbox" data-element-id="${f.key}" data-prop="${f.prop}" checked>
           <strong>${f.label}:</strong> ${escapeHtml(f.value.substring(0, 100))}${f.value.length > 100 ? '...' : ''}
         </label>
       `).join('')}
@@ -664,13 +665,14 @@ function applySelectedFields(idx) {
   const checkboxes = document.querySelectorAll('.field-checkbox input:checked');
   
   checkboxes.forEach(cb => {
-    const key = cb.value;
-    const value = candidate[key];
+    const elementId = cb.dataset.elementId;  // HTML element ID (e.g., 'identifier')
+    const prop = cb.dataset.prop;            // Candidate property name (e.g., 'isbn')
+    const value = candidate[prop];
     if (value) {
-      if (key === 'subjects' && Array.isArray(value)) {
-        document.getElementById(key).value = value.join(', ');
+      if (prop === 'subjects' && Array.isArray(value)) {
+        document.getElementById(elementId).value = value.join(', ');
       } else {
-        document.getElementById(key).value = value;
+        document.getElementById(elementId).value = value;
       }
     }
   });
