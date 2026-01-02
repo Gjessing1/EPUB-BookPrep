@@ -141,12 +141,13 @@ function validateMetadata(metadata) {
 }
 
 const app = Fastify({
-  logger: true
+  logger: true,
+  bodyLimit: 100 * 1024 * 1024 // 100MB - allows large JSON bodies (e.g., base64-encoded covers)
 });
 
 await app.register(multipart, {
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50 MB
+    fileSize: 100 * 1024 * 1024 // 100MB - allows large EPUB uploads
   }
 });
 
