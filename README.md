@@ -21,7 +21,7 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
 ## Live demo (temporary)
 A public demo is available for testing and evaluation:
 
-👉 **[Try the demo](https://epub.gjessing.io)**
+👉 **[Try the demo](https://gjessing.io/epub/demo/)**
 
 The demo is intended for light, manual testing only.  
 Uploaded files are processed in memory and are not stored, but availability and uptime are not guaranteed.  
