@@ -82,6 +82,10 @@ The application is distributed as a Docker container and can be run either behin
 - The application listens on port 3007 by default.
 - Access it via http://localhost:3007, or expose it through a reverse proxy such as Caddy, Traefik, or Nginx
 
+## Planned Features (Roadmap)
+- Detect and display whether the EPUB being edited is EPUB 2 or EPUB 3.
+- Improve large file handling: add a loading state for uploads >30MB to indicate progress.
+
 ## Like the project?
 Please consider buying me a coffe, i really do drink it alot!
 <p>
