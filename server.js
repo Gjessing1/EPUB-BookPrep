@@ -187,7 +187,7 @@ function cleanupExpiredSessions() {
 setInterval(cleanupExpiredSessions, 60 * 1000);
 
 /**
- * Upload EPUB → extract metadata + cover
+ * Upload EPUB â†’ extract metadata + cover
  */
 app.post("/upload", async (req, reply) => {
   try {
@@ -231,7 +231,7 @@ app.post("/upload", async (req, reply) => {
       warnings.push(meta.languageWarning);
     }
     if (meta.languageConverted) {
-      warnings.push(`Language code normalized: "${meta.languageConverted}" → "${meta.language}"`);
+      warnings.push(`Language code normalized: "${meta.languageConverted}" â†’ "${meta.language}"`);
     }
 
     reply.send({ 
@@ -240,6 +240,7 @@ app.post("/upload", async (req, reply) => {
       originalMeta,
       cover,
       filename: file.filename,
+      epubVersion: epub.version,
       warnings: warnings.length > 0 ? warnings : undefined
     });
   } catch (err) {
@@ -352,17 +353,19 @@ app.get("/search-title", async (req, reply) => {
 
 /**
  * Cover Search endpoint - returns multiple cover options
+ * Supports offset parameter for loading additional results
  */
 app.get("/search-covers", async (req, reply) => {
   try {
-    const { query, isbn } = req.query;
+    const { query, isbn, offset } = req.query;
     
     if (!query && !isbn) {
       reply.code(400).send({ error: "Query or ISBN required" });
       return;
     }
 
-    const covers = await searchCovers(query, isbn);
+    const offsetNum = offset ? parseInt(offset, 10) : 0;
+    const covers = await searchCovers(query, isbn, offsetNum);
     reply.send({ covers });
   } catch (err) {
     console.error("COVER SEARCH ERROR:", err);
@@ -506,7 +509,7 @@ app.post("/download", async (req, reply) => {
     const session = sessions.get(sessionId);
     const { epub, filename } = session;
 
-    // Generate smart filename: Title (YYYY) - Author.epub
+    // Generate smart filename: Title - Author.epub
     let downloadFilename = filename;
     
     // Get author name - support both array and string format
@@ -515,13 +518,10 @@ app.post("/download", async (req, reply) => {
       : sanitizedMetadata.author;
     
     if (sanitizedMetadata.title && authorName) {
-      const year = sanitizedMetadata.date ? sanitizedMetadata.date.substring(0, 4) : '';
       const title = sanitizedMetadata.title.replace(/[<>:"/\\|?*]/g, ''); // Remove invalid filename chars
       const author = authorName.replace(/[<>:"/\\|?*]/g, '');
       
-      downloadFilename = year 
-        ? `${title} (${year}) - ${author}.epub`
-        : `${title} - ${author}.epub`;
+      downloadFilename = `${title} - ${author}.epub`;
     }
 
     // Prepare cover buffer if cover was changed
