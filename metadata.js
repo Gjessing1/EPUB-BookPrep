@@ -233,16 +233,22 @@ export async function searchByTitle(title) {
 }
 
 /**
- * Search for multiple cover options - returns up to 12 covers with valid images
+ * Search for multiple cover options - returns up to 18 covers with valid images
+ * Supports offset parameter for loading additional results
  */
-export async function searchCovers(query, isbn) {
+export async function searchCovers(query, isbn, offset = 0) {
   if (!query && !isbn) return [];
   
   const covers = [];
+  const isLoadMore = offset > 0;
+  
+  // Calculate page offsets for APIs that support pagination
+  const olOffset = isLoadMore ? Math.floor(offset / 2) : 0;
+  const gbStartIndex = isLoadMore ? Math.floor(offset / 2) : 0;
   
   try {
-    // Search by ISBN if available
-    if (isbn) {
+    // Search by ISBN if available (only on initial search, not on load more)
+    if (isbn && !isLoadMore) {
       const clean = isbn.replace(/[^0-9X]/gi, "");
       
       // Only add if ISBN looks valid (not a UUID)
@@ -280,18 +286,20 @@ export async function searchCovers(query, isbn) {
       }
     }
     
-    // Search by title - get more results for 12 total
+    // Search by title - get more results
     if (query) {
       try {
-        // Open Library title search - get more for 3 pages
-        const olUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=10`;
+        // Open Library title search with offset
+        const olLimit = isLoadMore ? 15 : 10;
+        const olUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${olLimit}&offset=${olOffset}`;
         const olRes = await fetch(olUrl);
         
         if (olRes.ok) {
           const data = await olRes.json();
           
           if (data.docs) {
-            for (const book of data.docs.slice(0, 8)) {
+            const booksToProcess = isLoadMore ? data.docs.slice(0, 12) : data.docs.slice(0, 8);
+            for (const book of booksToProcess) {
               // Only add if cover_i exists (has actual cover)
               if (book.cover_i) {
                 covers.push({
@@ -307,9 +315,10 @@ export async function searchCovers(query, isbn) {
         // Skip if search fails
       }
       
-      // Google Books title search - get more for 3 pages
+      // Google Books title search with startIndex
       try {
-        const gbUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=8`;
+        const gbMaxResults = isLoadMore ? 12 : 8;
+        const gbUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${gbMaxResults}&startIndex=${gbStartIndex}`;
         const gbRes = await fetch(gbUrl);
         
         if (gbRes.ok) {
@@ -335,33 +344,36 @@ export async function searchCovers(query, isbn) {
       }
       
       // iTunes cover search - good quality artwork (shown last as Apple Books)
-      try {
-        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=ebook&entity=ebook&limit=8`;
-        const itunesRes = await fetch(itunesUrl);
-        
-        if (itunesRes.ok) {
-          const data = await itunesRes.json();
+      // iTunes API doesn't support pagination well, so only fetch on initial search or with different strategy
+      if (!isLoadMore) {
+        try {
+          const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=ebook&entity=ebook&limit=8`;
+          const itunesRes = await fetch(itunesUrl);
           
-          if (data.results) {
-            for (const item of data.results) {
-              if (item.artworkUrl100) {
-                // Get high-res version (600x600)
-                const highResUrl = item.artworkUrl100.replace('100x100', '600x600');
-                covers.push({
-                  url: highResUrl,
-                  source: 'Apple Books',
-                  description: item.trackName || 'Title search'
-                });
+          if (itunesRes.ok) {
+            const data = await itunesRes.json();
+            
+            if (data.results) {
+              for (const item of data.results) {
+                if (item.artworkUrl100) {
+                  // Get high-res version (600x600)
+                  const highResUrl = item.artworkUrl100.replace('100x100', '600x600');
+                  covers.push({
+                    url: highResUrl,
+                    source: 'Apple Books',
+                    description: item.trackName || 'Title search'
+                  });
+                }
               }
             }
           }
+        } catch (e) {
+          // Skip if iTunes search fails
         }
-      } catch (e) {
-        // Skip if iTunes search fails
       }
     }
     
-    // Remove duplicates by URL and limit to 18 (3 pages of 6)
+    // Remove duplicates by URL and limit results
     const seen = new Set();
     const uniqueCovers = covers.filter(cover => {
       if (seen.has(cover.url)) return false;
@@ -369,7 +381,9 @@ export async function searchCovers(query, isbn) {
       return true;
     });
     
-    return uniqueCovers.slice(0, 18);
+    // Return more results on load more, initial fetch still limited to 18
+    const maxResults = isLoadMore ? 24 : 18;
+    return uniqueCovers.slice(0, maxResults);
     
   } catch (err) {
     console.error("Cover search error:", err);
