@@ -899,14 +899,64 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
         const opfDir = path.dirname(opfPath);
         const fullCoverPath = path.join(opfDir, coverPath).replace(/\\/g, '/');
         
-        // Update media type if converting to JPEG
+        // Check if the buffer is JPEG
         const isJpeg = coverBuffer[0] === 0xFF && coverBuffer[1] === 0xD8;
-        if (isJpeg) {
-          coverItem.$["media-type"] = "image/jpeg";
-        }
         
-        // Replace the cover file
-        zip.file(fullCoverPath, coverBuffer);
+        if (isJpeg) {
+          // Update media type
+          coverItem.$["media-type"] = "image/jpeg";
+          
+          // Check if we need to rename the file (e.g., .png -> .jpg)
+          const currentExt = path.extname(coverPath).toLowerCase();
+          if (currentExt !== '.jpg' && currentExt !== '.jpeg') {
+            // Need to rename: delete old file and create with new extension
+            const newCoverPath = coverPath.replace(/\.[^.]+$/, '.jpg');
+            const newFullCoverPath = path.join(opfDir, newCoverPath).replace(/\\/g, '/');
+            
+            // Get just the filename parts for finding references
+            const oldFilename = path.basename(coverPath);
+            const newFilename = path.basename(newCoverPath);
+            
+            // Update references to the old cover in other files BEFORE deleting
+            // This ensures we can find all references while the old file still exists
+            const filesToCheck = Object.keys(zip.files).filter(f => 
+              !zip.files[f].dir && (f.endsWith('.html') || f.endsWith('.xhtml') || f.endsWith('.htm') || f.endsWith('.opf'))
+            );
+            
+            // Process all files in parallel and wait for completion
+            await Promise.all(filesToCheck.map(async (filePath) => {
+              try {
+                const file = zip.file(filePath);
+                if (file) {
+                  const content = await file.async('string');
+                  // Replace references to old filename with new filename
+                  // Use regex for global replacement to catch all occurrences
+                  if (content.includes(oldFilename)) {
+                    const updatedContent = content.split(oldFilename).join(newFilename);
+                    zip.file(filePath, updatedContent);
+                  }
+                }
+              } catch (e) {
+                console.error(`Error updating references in ${filePath}:`, e);
+              }
+            }));
+            
+            // Now delete old file and create new one
+            zip.remove(fullCoverPath);
+            
+            // Update manifest href
+            coverItem.$.href = newCoverPath;
+            
+            // Write new file with correct extension
+            zip.file(newFullCoverPath, coverBuffer);
+          } else {
+            // Extension is already correct, just replace the file
+            zip.file(fullCoverPath, coverBuffer);
+          }
+        } else {
+          // Not JPEG, just replace the file as-is
+          zip.file(fullCoverPath, coverBuffer);
+        }
       } else {
         // Add new cover if none exists
         const newCoverId = "cover-image";
