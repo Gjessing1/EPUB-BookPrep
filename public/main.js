@@ -58,7 +58,7 @@ function showSessionWarning() {
   
   const remaining = Math.ceil((SESSION_TIMEOUT_MS - (Date.now() - sessionStartTime)) / 60000);
   const warningText = banner.querySelector('.session-warning-text');
-  warningText.textContent = `âš ï¸ Your session will expire in ${remaining} minute${remaining !== 1 ? 's' : ''}. Please download your EPUB before the session ends.`;
+  warningText.textContent = 'Warning: Your session will expire in ' + remaining + ' minute' + (remaining !== 1 ? 's' : '') + '. Please download your EPUB before the session ends.';
   
   banner.classList.remove('hidden');
 }
@@ -84,7 +84,7 @@ function sessionExpired() {
   // Update warning banner to show expired message
   const banner = document.getElementById('sessionWarningBanner');
   const warningText = banner.querySelector('.session-warning-text');
-  warningText.textContent = 'âŒ Your session has expired. Please upload your EPUB file again to continue editing.';
+  warningText.textContent = 'Your session has expired. Please upload your EPUB file again to continue editing.';
   banner.classList.remove('hidden');
   
   // Hide dismiss button since this is a permanent state
@@ -107,13 +107,13 @@ function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem('darkMode', isDark);
-  document.getElementById('themeToggle').textContent = isDark ? 'â˜€ï¸' : 'ðŸŒ™';
+  document.getElementById('themeToggle').textContent = isDark ? 'Sun' : 'Moon';
 }
 
 // Load saved theme
 if (localStorage.getItem('darkMode') === 'true') {
   document.body.classList.add('dark-mode');
-  document.getElementById('themeToggle').textContent = 'â˜€ï¸';
+  document.getElementById('themeToggle').textContent = 'Sun';
 }
 
 // Tooltip functionality
@@ -176,7 +176,7 @@ document.getElementById('coverInput').addEventListener('change', (e) => {
     reader.onload = (e) => {
       currentCoverData = e.target.result.split(',')[1]; // Get base64 without prefix
       document.getElementById('coverPreview').innerHTML = 
-        `<img src="data:image/jpeg;base64,${currentCoverData}" alt="Cover">`;
+        '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">';
       coverChanged = true;
       updateDiffPreview();
       updateOPDSPreview();
@@ -192,7 +192,7 @@ function showWarnings(warnings) {
     return;
   }
   
-  banner.innerHTML = warnings.map(w => `<div class="warning-item">âš ï¸ ${escapeHtml(w)}</div>`).join('');
+  banner.innerHTML = warnings.map(w => '<div class="warning-item">Warning: ' + escapeHtml(w) + '</div>').join('');
   banner.classList.remove('hidden');
 }
 
@@ -253,7 +253,7 @@ async function handleFile(file) {
     // Show cover
     if (data.cover) {
       document.getElementById('coverPreview').innerHTML = 
-        `<img src="data:image/jpeg;base64,${data.cover}" alt="Cover">`;
+        '<img src="data:image/jpeg;base64,' + data.cover + '" alt="Cover">';
     }
 
     // Show any warnings
@@ -312,7 +312,7 @@ async function resetMetadata() {
       coverChanged = false;
       if (currentCoverData) {
         document.getElementById('coverPreview').innerHTML = 
-          `<img src="data:image/jpeg;base64,${currentCoverData}" alt="Cover">`;
+          '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">';
       }
       
       // Clear warnings
@@ -345,14 +345,14 @@ async function validateLanguage() {
   
   languageValidationTimeout = setTimeout(async () => {
     try {
-      const res = await fetch(`validate-language?code=${encodeURIComponent(code)}`);
+      const res = await fetch('validate-language?code=' + encodeURIComponent(code));
       const result = await res.json();
       
       if (result.warning) {
         warningEl.textContent = result.warning;
         warningEl.classList.remove('hidden');
       } else if (result.converted) {
-        warningEl.textContent = `Will be normalized to "${result.code}"`;
+        warningEl.textContent = 'Will be normalized to "' + result.code + '"';
         warningEl.classList.remove('hidden');
         warningEl.classList.add('info');
       } else {
@@ -425,7 +425,7 @@ async function optimizeCover() {
   
   const btn = document.getElementById('optimizeBtn');
   btn.disabled = true;
-  btn.textContent = 'â³ Processing...';
+  btn.textContent = 'Processing...';
   
   try {
     const res = await fetch('optimize-cover', {
@@ -438,7 +438,7 @@ async function optimizeCover() {
       const data = await res.json();
       currentCoverData = data.cover;
       document.getElementById('coverPreview').innerHTML = 
-        `<img src="data:image/jpeg;base64,${data.cover}" alt="Cover">`;
+        '<img src="data:image/jpeg;base64,' + data.cover + '" alt="Cover">';
       coverChanged = true;
       updateDiffPreview();
       updateOPDSPreview();
@@ -448,7 +448,7 @@ async function optimizeCover() {
     alert('Failed to optimize cover');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'âš¡ Compress';
+    btn.textContent = 'Compress';
   }
 }
 
@@ -464,21 +464,21 @@ async function lookupISBN() {
   document.getElementById('lookupText').innerHTML = '<span class="spinner"></span> Looking up...';
 
   try {
-    const res = await fetch(`lookup-isbn?isbn=${encodeURIComponent(isbn)}`);
+    const res = await fetch('lookup-isbn?isbn=' + encodeURIComponent(isbn));
     const data = await res.json();
 
     if (data.candidates && data.candidates.length > 0) {
       showCandidatesModal(data.candidates);
       // Show warnings if some sources failed (Task 4)
       if (data.errors && data.errors.length > 0) {
-        const errorMsgs = data.errors.map(e => e.message || `${e.source}: Error`).join('\n');
+        const errorMsgs = data.errors.map(e => e.message || (e.source + ': Error')).join('\n');
         console.warn('Partial lookup failures:', errorMsgs);
       }
     } else {
       // Show detailed error message (Task 4)
       let msg = 'No metadata found for this ISBN';
       if (data.errors && data.errors.length > 0) {
-        const errorDetails = data.errors.map(e => e.message || `${e.source}: unavailable`).join('; ');
+        const errorDetails = data.errors.map(e => e.message || (e.source + ': unavailable')).join('; ');
         msg += '\n\nDetails: ' + errorDetails;
       }
       alert(msg);
@@ -506,21 +506,21 @@ async function searchByTitle() {
   document.getElementById('searchText').innerHTML = '<span class="spinner"></span> Searching...';
 
   try {
-    const res = await fetch(`search-title?title=${encodeURIComponent(title)}`);
+    const res = await fetch('search-title?title=' + encodeURIComponent(title));
     const data = await res.json();
 
     if (data.candidates && data.candidates.length > 0) {
       showCandidatesModal(data.candidates);
       // Show warnings if some sources failed (Task 4)
       if (data.errors && data.errors.length > 0) {
-        const errorMsgs = data.errors.map(e => e.message || `${e.source}: Error`).join('\n');
+        const errorMsgs = data.errors.map(e => e.message || (e.source + ': Error')).join('\n');
         console.warn('Partial search failures:', errorMsgs);
       }
     } else {
       // Show detailed error message (Task 4)
       let msg = 'No results found';
       if (data.errors && data.errors.length > 0) {
-        const errorDetails = data.errors.map(e => e.message || `${e.source}: unavailable`).join('; ');
+        const errorDetails = data.errors.map(e => e.message || (e.source + ': unavailable')).join('; ');
         msg += '\n\nDetails: ' + errorDetails;
       }
       alert(msg);
@@ -538,65 +538,57 @@ function showCandidatesModal(candidates) {
   const modal = document.getElementById('candidatesModal');
   const list = document.getElementById('candidatesList');
   
-  // ---- replace the template builder with this block (Task 10A) ----
   list.innerHTML = candidates.map((candidate, idx) => {
-    // Build list of all available fields (unchanged)
+    // Build list of all available fields
     const fields = [];
-    if (candidate.title) fields.push(`<strong>Title:</strong> ${escapeHtml(candidate.title)}`);
-    if (candidate.author) fields.push(`<strong>Author:</strong> ${escapeHtml(candidate.author)}`);
-    if (candidate.isbn) fields.push(`<strong>ISBN:</strong> ${escapeHtml(candidate.isbn)}`);
-    if (candidate.publisher) fields.push(`<strong>Publisher:</strong> ${escapeHtml(candidate.publisher)}`);
-    if (candidate.date) fields.push(`<strong>Date:</strong> ${escapeHtml(candidate.date)}`);
-    if (candidate.language) fields.push(`<strong>Language:</strong> ${escapeHtml(candidate.language)}`);
+    if (candidate.title) fields.push('<strong>Title:</strong> ' + escapeHtml(candidate.title));
+    if (candidate.author) fields.push('<strong>Author:</strong> ' + escapeHtml(candidate.author));
+    if (candidate.isbn) fields.push('<strong>ISBN:</strong> ' + escapeHtml(candidate.isbn));
+    if (candidate.publisher) fields.push('<strong>Publisher:</strong> ' + escapeHtml(candidate.publisher));
+    if (candidate.date) fields.push('<strong>Date:</strong> ' + escapeHtml(candidate.date));
+    if (candidate.language) fields.push('<strong>Language:</strong> ' + escapeHtml(candidate.language));
     if (candidate.description) {
       const desc = candidate.description.substring(0, 200);
-      fields.push(`<strong>Description:</strong> ${escapeHtml(desc)}${candidate.description.length > 200 ? '...' : ''}`);
+      fields.push('<strong>Description:</strong> ' + escapeHtml(desc) + (candidate.description.length > 200 ? '...' : ''));
     }
     if (candidate.subjects && candidate.subjects.length) {
-      fields.push(`<strong>Subjects:</strong> ${candidate.subjects.map(s => escapeHtml(s)).join(', ')}`);
+      fields.push('<strong>Subjects:</strong> ' + candidate.subjects.map(s => escapeHtml(s)).join(', '));
     }
 
     const noISBNNote = (!candidate.isbn && candidate.source === 'Apple Books')
       ? '<div class="candidate-note">Note: Apple Books results do not include ISBN</div>'
       : '';
 
-    // New responsive card structure: content left, cover right (desktop)
-    return `
-      <div class="candidate-card">
-        <div class="candidate-main">
-          <div class="candidate-header">
-            <div class="candidate-title-block">
-              <div class="candidate-title-row">
-                <strong class="candidate-title">${escapeHtml(candidate.title || 'Unknown Title')}</strong>
-                <span class="source-badge">${escapeHtml(candidate.source || 'Unknown')}</span>
-              </div>
-
-
-            </div>
-          </div>
-
-          <div class="candidate-details">
-            ${fields.map(f => `<div>${f}</div>`).join('')}
-            ${noISBNNote}
-          </div>
-
-          <div class="candidate-actions">
-            <button class="btn btn-primary btn-small" onclick="applyCandidate(${idx})">
-              Apply All Fields
-            </button>
-            <button class="btn btn-secondary btn-small" onclick="selectiveApply(${idx})">
-              Select Fields
-            </button>
-          </div>
-        </div>
-
-        <div class="candidate-cover-wrap" aria-hidden="${candidate.coverUrl ? 'false' : 'true'}">
-          ${candidate.coverUrl
-            ? `<img src="${candidate.coverUrl}" alt="Cover for ${escapeHtml(candidate.title || 'candidate')}" class="candidate-cover">`
-            : `<div class="candidate-cover placeholder">No image</div>`}
-        </div>
-      </div>
-    `;
+    return '\
+      <div class="candidate-card">\
+        <div class="candidate-main">\
+          <div class="candidate-header">\
+            <div class="candidate-title-block">\
+              <div class="candidate-title-row">\
+                <strong class="candidate-title">' + escapeHtml(candidate.title || 'Unknown Title') + '</strong>\
+                <span class="source-badge">' + escapeHtml(candidate.source || 'Unknown') + '</span>\
+              </div>\
+            </div>\
+          </div>\
+          <div class="candidate-details">\
+            ' + fields.map(f => '<div>' + f + '</div>').join('') + '\
+            ' + noISBNNote + '\
+          </div>\
+          <div class="candidate-actions">\
+            <button class="btn btn-primary btn-small" onclick="applyCandidate(' + idx + ')">\
+              Apply All Fields\
+            </button>\
+            <button class="btn btn-secondary btn-small" onclick="selectiveApply(' + idx + ')">\
+              Select Fields\
+            </button>\
+          </div>\
+        </div>\
+        <div class="candidate-cover-wrap">\
+          ' + (candidate.coverUrl
+            ? '<img src="' + candidate.coverUrl + '" alt="Cover" class="candidate-cover">'
+            : '<div class="candidate-cover placeholder">No image</div>') + '\
+        </div>\
+      </div>';
   }).join('');
   
   modal.classList.remove('hidden');
@@ -634,7 +626,6 @@ function selectiveApply(idx) {
   // Store both 'key' (HTML element ID) and 'prop' (candidate property name)
   if (candidate.title) fields.push({ key: 'title', prop: 'title', label: 'Title', value: candidate.title });
   if (candidate.author) fields.push({ key: 'author', prop: 'author', label: 'Author', value: candidate.author });
-  // ISBN: element ID is 'identifier', but candidate property is 'isbn'
   if (candidate.isbn) fields.push({ key: 'identifier', prop: 'isbn', label: 'ISBN', value: candidate.isbn });
   if (candidate.publisher) fields.push({ key: 'publisher', prop: 'publisher', label: 'Publisher', value: candidate.publisher });
   if (candidate.date) fields.push({ key: 'date', prop: 'date', label: 'Date', value: candidate.date });
@@ -643,21 +634,20 @@ function selectiveApply(idx) {
   if (candidate.subjects) fields.push({ key: 'subjects', prop: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
   
   const list = document.getElementById('candidatesList');
-  list.innerHTML = `
-    <div class="field-selector">
-      <h4>Select fields to apply:</h4>
-      ${fields.map(f => `
-        <label class="field-checkbox">
-          <input type="checkbox" data-element-id="${f.key}" data-prop="${f.prop}" checked>
-          <strong>${f.label}:</strong> ${escapeHtml(f.value.substring(0, 100))}${f.value.length > 100 ? '...' : ''}
-        </label>
-      `).join('')}
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="showCandidatesModal(window.currentCandidates)">Back</button>
-        <button class="btn btn-primary" onclick="applySelectedFields(${idx})">Apply Selected</button>
-      </div>
-    </div>
-  `;
+  list.innerHTML = '\
+    <div class="field-selector">\
+      <h4>Select fields to apply:</h4>\
+      ' + fields.map(f => '\
+        <label class="field-checkbox">\
+          <input type="checkbox" data-element-id="' + f.key + '" data-prop="' + f.prop + '" checked>\
+          <strong>' + f.label + ':</strong> ' + escapeHtml(f.value.substring(0, 100)) + (f.value.length > 100 ? '...' : '') + '\
+        </label>\
+      ').join('') + '\
+      <div class="modal-footer">\
+        <button class="btn btn-secondary" onclick="showCandidatesModal(window.currentCandidates)">Back</button>\
+        <button class="btn btn-primary" onclick="applySelectedFields(' + idx + ')">Apply Selected</button>\
+      </div>\
+    </div>';
 }
 
 function applySelectedFields(idx) {
@@ -665,8 +655,8 @@ function applySelectedFields(idx) {
   const checkboxes = document.querySelectorAll('.field-checkbox input:checked');
   
   checkboxes.forEach(cb => {
-    const elementId = cb.dataset.elementId;  // HTML element ID (e.g., 'identifier')
-    const prop = cb.dataset.prop;            // Candidate property name (e.g., 'isbn')
+    const elementId = cb.dataset.elementId;
+    const prop = cb.dataset.prop;
     const value = candidate[prop];
     if (value) {
       if (prop === 'subjects' && Array.isArray(value)) {
@@ -695,8 +685,8 @@ async function showCoverSearch() {
   const list = document.getElementById('coversList');
   const modalTitle = document.getElementById('coverModalTitle');
   
-  modalTitle.textContent = 'ðŸ–¼ï¸ Select Cover Image';
-  list.innerHTML = '<div class="loading">ðŸ” Searching for covers...</div>';
+  modalTitle.textContent = 'Select Cover Image';
+  list.innerHTML = '<div class="loading">Searching for covers...</div>';
   modal.classList.remove('hidden');
   
   try {
@@ -704,13 +694,13 @@ async function showCoverSearch() {
     if (title) params.append('query', title);
     if (isbn) params.append('isbn', isbn);
     
-    const res = await fetch(`search-covers?${params}`);
+    const res = await fetch('search-covers?' + params);
     const data = await res.json();
     
     if (data.covers && data.covers.length > 0) {
       coverSearchResults = data.covers;
       coverSearchPage = 0;
-      modalTitle.textContent = `ðŸ–¼ï¸ Select Cover Image (${data.covers.length} results)`;
+      modalTitle.textContent = 'Select Cover Image (' + data.covers.length + ' results)';
       displayCoverPage();
     } else {
       list.innerHTML = '<div class="no-results">No covers found</div>';
@@ -729,37 +719,36 @@ function displayCoverPage() {
   const end = start + itemsPerPage;
   const pageCovers = coverSearchResults.slice(start, end);
   
-  list.innerHTML = pageCovers.map((cover, idx) => `
-    <div class="cover-option" onclick="selectCover('${cover.url}')">
-      <img src="${cover.url}" alt="Cover option" loading="lazy" onerror="this.parentElement.style.display='none'">
-      <div class="cover-info">
-        <div><strong>${escapeHtml(cover.source)}</strong></div>
-        <div class="cover-desc">${escapeHtml(cover.description)}</div>
-      </div>
-    </div>
-  `).join('');
+  list.innerHTML = pageCovers.map((cover, idx) => '\
+    <div class="cover-option" onclick="selectCover(\'' + cover.url + '\')">\
+      <img src="' + cover.url + '" alt="Cover option" loading="lazy" onerror="this.parentElement.style.display=\'none\'">\
+      <div class="cover-info">\
+        <div><strong>' + escapeHtml(cover.source) + '</strong></div>\
+        <div class="cover-desc">' + escapeHtml(cover.description) + '</div>\
+      </div>\
+    </div>\
+  ').join('');
   
   // Add pagination controls if needed
   if (totalPages > 1) {
-    const paginationHTML = `
-      <div class="cover-pagination">
-        <button 
-          class="btn btn-secondary btn-small" 
-          onclick="changeCoverPage(-1)" 
-          ${coverSearchPage === 0 ? 'disabled' : ''}
-        >
-          â† Previous
-        </button>
-        <span class="page-indicator">Page ${coverSearchPage + 1} of ${totalPages}</span>
-        <button 
-          class="btn btn-secondary btn-small" 
-          onclick="changeCoverPage(1)" 
-          ${coverSearchPage === totalPages - 1 ? 'disabled' : ''}
-        >
-          Next â†’
-        </button>
-      </div>
-    `;
+    const paginationHTML = '\
+      <div class="cover-pagination">\
+        <button \
+          class="btn btn-secondary btn-small" \
+          onclick="changeCoverPage(-1)" \
+          ' + (coverSearchPage === 0 ? 'disabled' : '') + '\
+        >\
+          Previous\
+        </button>\
+        <span class="page-indicator">Page ' + (coverSearchPage + 1) + ' of ' + totalPages + '</span>\
+        <button \
+          class="btn btn-secondary btn-small" \
+          onclick="changeCoverPage(1)" \
+          ' + (coverSearchPage === totalPages - 1 ? 'disabled' : '') + '\
+        >\
+          Next\
+        </button>\
+      </div>';
     list.insertAdjacentHTML('beforeend', paginationHTML);
   }
 }
@@ -780,14 +769,14 @@ async function selectCover(url) {
     const res = await fetch('fetch-cover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, optimize: true })
+      body: JSON.stringify({ url: url, optimize: true })
     });
     
     if (res.ok) {
       const data = await res.json();
       currentCoverData = data.cover;
       document.getElementById('coverPreview').innerHTML = 
-        `<img src="data:image/jpeg;base64,${data.cover}" alt="Cover">`;
+        '<img src="data:image/jpeg;base64,' + data.cover + '" alt="Cover">';
       coverChanged = true;
       updateDiffPreview();
       updateOPDSPreview();
@@ -807,8 +796,8 @@ function getCurrentMetadata() {
   return {
     title: document.getElementById('title').value.trim(),
     subtitle: document.getElementById('subtitle').value.trim(),
-    author: authorValue, // Keep single string for backward compat
-    authors: authorsArray.map(name => ({ name })), // Array format for EPUB 3
+    author: authorValue,
+    authors: authorsArray.map(name => ({ name: name })),
     contributors: document.getElementById('contributors').value.trim(),
     language: document.getElementById('language').value.trim(),
     publisher: document.getElementById('publisher').value.trim(),
@@ -878,20 +867,19 @@ function updateDiffPreview() {
     preview.classList.add('hidden');
   } else {
     preview.classList.remove('hidden');
-    preview.innerHTML = `
-      <div class="diff-preview">
-        <h4>ðŸ“‹ Changes Preview</h4>
-        ${changes.map(c => `
-          <div class="diff-item">
-            <div class="diff-field">${escapeHtml(c.field)}</div>
-            <div class="diff-values">
-              ${c.old ? `<div class="diff-old">${escapeHtml(c.old.substring(0, 100))}${c.old.length > 100 ? '...' : ''}</div>` : ''}
-              <div class="diff-new">${escapeHtml(c.new.substring(0, 100))}${c.new.length > 100 ? '...' : ''}</div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
+    preview.innerHTML = '\
+      <div class="diff-preview">\
+        <h4>Changes Preview</h4>\
+        ' + changes.map(c => '\
+          <div class="diff-item">\
+            <div class="diff-field">' + escapeHtml(c.field) + '</div>\
+            <div class="diff-values">\
+              ' + (c.old ? '<div class="diff-old">' + escapeHtml(c.old.substring(0, 100)) + (c.old.length > 100 ? '...' : '') + '</div>' : '') + '\
+              <div class="diff-new">' + escapeHtml(c.new.substring(0, 100)) + (c.new.length > 100 ? '...' : '') + '</div>\
+            </div>\
+          </div>\
+        ').join('') + '\
+      </div>';
   }
   
   // Update OPDS preview
@@ -910,7 +898,7 @@ function updateOPDSPreview() {
   const year = metadata.date ? metadata.date.substring(0, 4) : '';
   const publisher = metadata.publisher || '';
   const series = metadata.series || '';
-  const seriesIndex = metadata.seriesIndex ? `#${metadata.seriesIndex}` : '';
+  const seriesIndex = metadata.seriesIndex ? '#' + metadata.seriesIndex : '';
   const language = metadata.language || '';
   const subjects = metadata.subjects || [];
   const description = metadata.description || '';
@@ -918,7 +906,7 @@ function updateOPDSPreview() {
   // Build metadata line
   const metaParts = [];
   if (series) {
-    metaParts.push(`${series}${seriesIndex ? ' ' + seriesIndex : ''}`);
+    metaParts.push(series + (seriesIndex ? ' ' + seriesIndex : ''));
   }
   if (publisher) {
     metaParts.push(publisher);
@@ -927,7 +915,7 @@ function updateOPDSPreview() {
     metaParts.push(year);
   }
   
-  const metaLine = metaParts.join(' â€¢ ') || 'No additional info';
+  const metaLine = metaParts.join(' - ') || 'No additional info';
   
   // Build subjects line - show all subjects
   const subjectsLine = subjects.length > 0 
@@ -941,25 +929,24 @@ function updateOPDSPreview() {
   
   // Generate cover HTML
   const coverHTML = currentCoverData 
-    ? `<img src="data:image/jpeg;base64,${currentCoverData}" alt="Cover">` 
+    ? '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">' 
     : '<div class="opds-cover-placeholder">?</div>';
   
-  opdsPreview.innerHTML = `
-    <div class="opds-item">
-      <div class="opds-cover-mini">
-        ${coverHTML}
-      </div>
-      <div class="opds-details">
-        <div class="opds-title">${escapeHtml(title)}</div>
-        ${subtitle ? `<div class="opds-subtitle">${escapeHtml(subtitle)}</div>` : ''}
-        <div class="opds-author">${escapeHtml(author)}</div>
-        <div class="opds-meta">${escapeHtml(metaLine)}</div>
-        ${language ? `<div class="opds-language">Language: ${escapeHtml(language)}</div>` : ''}
-        ${subjectsLine ? `<div class="opds-subjects">Categories: ${escapeHtml(subjectsLine)}</div>` : ''}
-        ${descPreview ? `<div class="opds-description">${escapeHtml(descPreview)}</div>` : ''}
-      </div>
-    </div>
-  `;
+  opdsPreview.innerHTML = '\
+    <div class="opds-item">\
+      <div class="opds-cover-mini">\
+        ' + coverHTML + '\
+      </div>\
+      <div class="opds-details">\
+        <div class="opds-title">' + escapeHtml(title) + '</div>\
+        ' + (subtitle ? '<div class="opds-subtitle">' + escapeHtml(subtitle) + '</div>' : '') + '\
+        <div class="opds-author">' + escapeHtml(author) + '</div>\
+        <div class="opds-meta">' + escapeHtml(metaLine) + '</div>\
+        ' + (language ? '<div class="opds-language">Language: ' + escapeHtml(language) + '</div>' : '') + '\
+        ' + (subjectsLine ? '<div class="opds-subjects">Categories: ' + escapeHtml(subjectsLine) + '</div>' : '') + '\
+        ' + (descPreview ? '<div class="opds-description">' + escapeHtml(descPreview) + '</div>' : '') + '\
+      </div>\
+    </div>';
 }
 
 function escapeHtml(text) {
@@ -986,10 +973,10 @@ async function downloadEPUB() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sessionId,
-        metadata,
+        sessionId: sessionId,
+        metadata: metadata,
         cover: currentCoverData,
-        coverChanged
+        coverChanged: coverChanged
       })
     });
 
@@ -1010,6 +997,6 @@ async function downloadEPUB() {
     alert('Failed to create EPUB');
   } finally {
     btn.disabled = false;
-    document.getElementById('downloadText').textContent = 'ðŸ’¾ Download Cleaned EPUB';
+    document.getElementById('downloadText').textContent = 'Download Cleaned EPUB';
   }
 }
