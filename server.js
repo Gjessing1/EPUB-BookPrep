@@ -518,10 +518,19 @@ app.post("/download", async (req, reply) => {
       : sanitizedMetadata.author;
     
     if (sanitizedMetadata.title && authorName) {
-      const title = sanitizedMetadata.title.replace(/[<>:"/\\|?*]/g, ''); // Remove invalid filename chars
-      const author = authorName.replace(/[<>:"/\\|?*]/g, '');
+      // Remove invalid filename chars and control characters
+      const sanitizeFilename = (str) => str
+        .replace(/[<>:"/\\|?*\x00-\x1F\x7F]/g, '') // Remove invalid chars and control chars
+        .replace(/[\r\n]+/g, ' ')  // Replace newlines with space
+        .trim()
+        .substring(0, 200);  // Limit length
       
-      downloadFilename = `${title} - ${author}.epub`;
+      const title = sanitizeFilename(sanitizedMetadata.title);
+      const author = sanitizeFilename(authorName);
+      
+      if (title && author) {
+        downloadFilename = `${title} - ${author}.epub`;
+      }
     }
 
     // Prepare cover buffer if cover was changed
