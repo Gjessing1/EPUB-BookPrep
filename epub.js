@@ -152,11 +152,15 @@ export async function readEpub(buffer) {
   const opfXml = await zip.file(opfPath).async("string");
   const opf = await parseStringPromise(opfXml);
 
+  // Extract EPUB version from package element
+  const epubVersion = opf.package.$?.version || "2.0";
+
   return {
     zip,
     opfPath,
     opf,
-    meta: opf.package.metadata[0]
+    meta: opf.package.metadata[0],
+    version: epubVersion
   };
 }
 
@@ -333,7 +337,7 @@ export function normalizeMetadata(metadata) {
       warnings.push(langResult.warning);
     }
     if (langResult.converted) {
-      warnings.push(`Language code converted: "${langResult.original}" â†’ "${langResult.code}"`);
+      warnings.push(`Language code converted: "${langResult.original}" Ã¢â€ â€™ "${langResult.code}"`);
     }
   }
   
