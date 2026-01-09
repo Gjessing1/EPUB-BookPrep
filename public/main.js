@@ -6,6 +6,12 @@ let coverChanged = false;
 
 let coverSearchResults = [];
 let coverSearchPage = 0;
+let coverSearchQuery = '';  // Store query for loading more covers
+let coverSearchIsbn = '';   // Store ISBN for loading more covers
+let maxCoverPages = 6;      // Maximum pages (6 pages × 6 images = 36 images)
+
+// Store EPUB version
+let epubVersion = null;
 
 // Track if authors came as array from server
 let authorsIsArray = false;
@@ -201,6 +207,23 @@ async function handleFile(file) {
 
   const form = new FormData();
   form.append('file', file);
+  
+  // Show loading state
+  const uploadZone = document.getElementById('uploadZone');
+  const originalContent = uploadZone.innerHTML;
+  const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+  
+  uploadZone.classList.add('uploading');
+  uploadZone.innerHTML = '\
+    <div class="upload-icon">📤</div>\
+    <h3>Processing...</h3>\
+    <p>' + escapeHtml(file.name) + ' (' + fileSizeMB + ' MB)</p>\
+    <div class="upload-progress">\
+      <div class="upload-progress-bar">\
+        <div class="upload-progress-bar-fill indeterminate"></div>\
+      </div>\
+      <span>This may take a moment for large files</span>\
+    </div>';
 
   try {
     const res = await fetch('upload', {
@@ -211,6 +234,9 @@ async function handleFile(file) {
     if (!res.ok) {
       const error = await res.json();
       alert(error.error || 'Upload failed');
+      // Restore original upload zone
+      uploadZone.classList.remove('uploading');
+      uploadZone.innerHTML = originalContent;
       return;
     }
 
@@ -219,6 +245,7 @@ async function handleFile(file) {
     const m = data.meta || {};
     originalMetadata = data.originalMeta || m;
     currentCoverData = data.cover;
+    epubVersion = data.epubVersion || '2.0';  // Store EPUB version
     
     // Start session timer (Part 2B)
     startSessionTimer();
@@ -259,12 +286,19 @@ async function handleFile(file) {
     // Show any warnings
     showWarnings(data.warnings);
 
+    // Restore upload zone and show editor
+    uploadZone.classList.remove('uploading');
+    uploadZone.innerHTML = originalContent;
+    
     document.getElementById('editor').classList.remove('hidden');
     updateDiffPreview();
     updateOPDSPreview();
   } catch (err) {
     console.error(err);
     alert('Failed to process EPUB');
+    // Restore original upload zone
+    uploadZone.classList.remove('uploading');
+    uploadZone.innerHTML = originalContent;
   }
 }
 
@@ -623,46 +657,49 @@ function selectiveApply(idx) {
   const candidate = window.currentCandidates[idx];
   const fields = [];
   
-  // Store both 'key' (HTML element ID) and 'prop' (candidate property name)
-  if (candidate.title) fields.push({ key: 'title', prop: 'title', label: 'Title', value: candidate.title });
-  if (candidate.author) fields.push({ key: 'author', prop: 'author', label: 'Author', value: candidate.author });
-  if (candidate.isbn) fields.push({ key: 'identifier', prop: 'isbn', label: 'ISBN', value: candidate.isbn });
-  if (candidate.publisher) fields.push({ key: 'publisher', prop: 'publisher', label: 'Publisher', value: candidate.publisher });
-  if (candidate.date) fields.push({ key: 'date', prop: 'date', label: 'Date', value: candidate.date });
-  if (candidate.language) fields.push({ key: 'language', prop: 'language', label: 'Language', value: candidate.language });
-  if (candidate.description) fields.push({ key: 'description', prop: 'description', label: 'Description', value: candidate.description });
-  if (candidate.subjects) fields.push({ key: 'subjects', prop: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
+  // Store element ID (for DOM), value (direct value to apply), and label for display
+  if (candidate.title) fields.push({ elementId: 'title', label: 'Title', value: candidate.title });
+  if (candidate.author) fields.push({ elementId: 'author', label: 'Author', value: candidate.author });
+  if (candidate.isbn) fields.push({ elementId: 'identifier', label: 'ISBN', value: candidate.isbn });
+  if (candidate.publisher) fields.push({ elementId: 'publisher', label: 'Publisher', value: candidate.publisher });
+  if (candidate.date) fields.push({ elementId: 'date', label: 'Date', value: candidate.date });
+  if (candidate.language) fields.push({ elementId: 'language', label: 'Language', value: candidate.language });
+  if (candidate.description) fields.push({ elementId: 'description', label: 'Description', value: candidate.description });
+  if (candidate.subjects && candidate.subjects.length) {
+    fields.push({ elementId: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
+  }
+  
+  // Store fields for applySelectedFields to use
+  window.currentSelectiveFields = fields;
   
   const list = document.getElementById('candidatesList');
   list.innerHTML = '\
     <div class="field-selector">\
       <h4>Select fields to apply:</h4>\
-      ' + fields.map(f => '\
+      ' + fields.map((f, i) => '\
         <label class="field-checkbox">\
-          <input type="checkbox" data-element-id="' + f.key + '" data-prop="' + f.prop + '" checked>\
-          <strong>' + f.label + ':</strong> ' + escapeHtml(f.value.substring(0, 100)) + (f.value.length > 100 ? '...' : '') + '\
+          <input type="checkbox" data-field-index="' + i + '" checked>\
+          <strong>' + f.label + ':</strong> ' + escapeHtml(String(f.value).substring(0, 100)) + (String(f.value).length > 100 ? '...' : '') + '\
         </label>\
       ').join('') + '\
       <div class="modal-footer">\
         <button class="btn btn-secondary" onclick="showCandidatesModal(window.currentCandidates)">Back</button>\
-        <button class="btn btn-primary" onclick="applySelectedFields(' + idx + ')">Apply Selected</button>\
+        <button class="btn btn-primary" onclick="applySelectedFields()">Apply Selected</button>\
       </div>\
     </div>';
 }
 
-function applySelectedFields(idx) {
-  const candidate = window.currentCandidates[idx];
+function applySelectedFields() {
   const checkboxes = document.querySelectorAll('.field-checkbox input:checked');
+  const fields = window.currentSelectiveFields || [];
   
   checkboxes.forEach(cb => {
-    const elementId = cb.dataset.elementId;
-    const prop = cb.dataset.prop;
-    const value = candidate[prop];
-    if (value) {
-      if (prop === 'subjects' && Array.isArray(value)) {
-        document.getElementById(elementId).value = value.join(', ');
-      } else {
-        document.getElementById(elementId).value = value;
+    const fieldIndex = parseInt(cb.dataset.fieldIndex, 10);
+    if (!isNaN(fieldIndex) && fields[fieldIndex]) {
+      const field = fields[fieldIndex];
+      const element = document.getElementById(field.elementId);
+      if (element && field.value !== undefined && field.value !== null) {
+        element.value = field.value;
       }
     }
   });
@@ -680,6 +717,10 @@ async function showCoverSearch() {
     alert('Please enter a title or ISBN first');
     return;
   }
+  
+  // Store search parameters for loading more
+  coverSearchQuery = title;
+  coverSearchIsbn = isbn;
   
   const modal = document.getElementById('coverModal');
   const list = document.getElementById('coversList');
@@ -713,11 +754,15 @@ async function showCoverSearch() {
 
 function displayCoverPage() {
   const list = document.getElementById('coversList');
+  const modalTitle = document.getElementById('coverModalTitle');
   const itemsPerPage = 6;
   const totalPages = Math.ceil(coverSearchResults.length / itemsPerPage);
   const start = coverSearchPage * itemsPerPage;
   const end = start + itemsPerPage;
   const pageCovers = coverSearchResults.slice(start, end);
+  
+  // Update modal title with result count
+  modalTitle.textContent = 'Select Cover Image (' + coverSearchResults.length + ' results)';
   
   list.innerHTML = pageCovers.map((cover, idx) => '\
     <div class="cover-option" onclick="selectCover(\'' + cover.url + '\')">\
@@ -730,7 +775,10 @@ function displayCoverPage() {
   ').join('');
   
   // Add pagination controls if needed
-  if (totalPages > 1) {
+  if (totalPages > 1 || totalPages < maxCoverPages) {
+    const isLastPage = coverSearchPage === totalPages - 1;
+    const canLoadMore = isLastPage && totalPages < maxCoverPages;
+    
     const paginationHTML = '\
       <div class="cover-pagination">\
         <button \
@@ -741,13 +789,23 @@ function displayCoverPage() {
           Previous\
         </button>\
         <span class="page-indicator">Page ' + (coverSearchPage + 1) + ' of ' + totalPages + '</span>\
-        <button \
-          class="btn btn-secondary btn-small" \
-          onclick="changeCoverPage(1)" \
-          ' + (coverSearchPage === totalPages - 1 ? 'disabled' : '') + '\
-        >\
-          Next\
-        </button>\
+        ' + (canLoadMore ? '\
+          <button \
+            class="btn btn-primary btn-small" \
+            onclick="loadMoreCovers()" \
+            id="loadMoreBtn"\
+          >\
+            Load More\
+          </button>\
+        ' : '\
+          <button \
+            class="btn btn-secondary btn-small" \
+            onclick="changeCoverPage(1)" \
+            ' + (isLastPage ? 'disabled' : '') + '\
+          >\
+            Next\
+          </button>\
+        ') + '\
       </div>';
     list.insertAdjacentHTML('beforeend', paginationHTML);
   }
@@ -756,6 +814,54 @@ function displayCoverPage() {
 function changeCoverPage(direction) {
   coverSearchPage += direction;
   displayCoverPage();
+}
+
+async function loadMoreCovers() {
+  const loadBtn = document.getElementById('loadMoreBtn');
+  if (loadBtn) {
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Loading...';
+  }
+  
+  try {
+    const params = new URLSearchParams();
+    if (coverSearchQuery) params.append('query', coverSearchQuery);
+    if (coverSearchIsbn) params.append('isbn', coverSearchIsbn);
+    params.append('offset', coverSearchResults.length);  // Send current count as offset
+    
+    const res = await fetch('search-covers?' + params);
+    const data = await res.json();
+    
+    if (data.covers && data.covers.length > 0) {
+      // Filter out duplicates by URL
+      const existingUrls = new Set(coverSearchResults.map(c => c.url));
+      const newCovers = data.covers.filter(c => !existingUrls.has(c.url));
+      
+      if (newCovers.length > 0) {
+        coverSearchResults = [...coverSearchResults, ...newCovers];
+        // Move to the next page (not the last page)
+        coverSearchPage += 1;
+        displayCoverPage();
+      } else {
+        // No new covers, just re-render
+        if (loadBtn) {
+          loadBtn.textContent = 'No more results';
+          loadBtn.disabled = true;
+        }
+      }
+    } else {
+      if (loadBtn) {
+        loadBtn.textContent = 'No more results';
+        loadBtn.disabled = true;
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    if (loadBtn) {
+      loadBtn.textContent = 'Error loading';
+      loadBtn.disabled = true;
+    }
+  }
 }
 
 function closeCoverModal() {
@@ -903,6 +1009,15 @@ function updateOPDSPreview() {
   const subjects = metadata.subjects || [];
   const description = metadata.description || '';
   
+  // Format EPUB version for display in header
+  const versionDisplay = epubVersion ? 'EPUB ' + (epubVersion.startsWith('2') ? '2' : epubVersion.startsWith('3') ? '3' : epubVersion) : '';
+  
+  // Update the OPDS preview header with version
+  const opdsHeader = opdsPreview.parentElement.querySelector('.opds-preview-header');
+  if (opdsHeader) {
+    opdsHeader.innerHTML = '📚 OPDS Preview' + (versionDisplay ? '<span class="opds-header-version">' + versionDisplay + '</span>' : '');
+  }
+  
   // Build metadata line
   const metaParts = [];
   if (series) {
@@ -988,7 +1103,19 @@ async function downloadEPUB() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = uploadedFile.name;
+    
+    // Get filename from Content-Disposition header, fallback to generated name
+    let downloadFilename = uploadedFile.name;
+    const contentDisposition = res.headers.get('Content-Disposition');
+    if (contentDisposition) {
+      // Parse filename from header: attachment; filename="Title - Author.epub"
+      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (filenameMatch && filenameMatch[1]) {
+        downloadFilename = filenameMatch[1];
+      }
+    }
+    
+    a.download = downloadFilename;
     a.click();
     URL.revokeObjectURL(url);
 
