@@ -333,7 +333,7 @@ export function normalizeMetadata(metadata) {
       warnings.push(langResult.warning);
     }
     if (langResult.converted) {
-      warnings.push(`Language code converted: "${langResult.original}" → "${langResult.code}"`);
+      warnings.push(`Language code converted: "${langResult.original}" â†’ "${langResult.code}"`);
     }
   }
   
@@ -681,6 +681,8 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
     
     // Check if we're updating an existing ISBN or adding new
     let foundExistingISBN = false;
+    let updatedISBNIdAttr = null;  // Track the id of the updated/added ISBN
+    
     const updatedIdentifiers = existingArray.map(id => {
       const idAttr = id?.$?.id;
       const value = String(id?._ ?? id).trim();
@@ -694,11 +696,22 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
       
       if (isExistingISBN && (isISBN10 || isISBN13)) {
         foundExistingISBN = true;
+        updatedISBNIdAttr = idAttr || "pub-id";
+        
         // Update this ISBN identifier
-        return {
-          _: sanitizedId,
-          $: { id: idAttr || "pub-id", ...(scheme ? { "opf:scheme": "ISBN" } : {}) }
-        };
+        // EPUB 3: Use id attribute only, no opf:scheme (use meta refinement instead)
+        // EPUB 2: Use opf:scheme attribute
+        if (!isEpub2) {
+          return {
+            _: sanitizedId,
+            $: { id: updatedISBNIdAttr }
+          };
+        } else {
+          return {
+            _: sanitizedId,
+            $: { id: idAttr, "opf:scheme": "ISBN" }
+          };
+        }
       }
       
       // Preserve other identifiers as-is (ASIN, UUID, internal IDs) (Task 7A)
@@ -707,32 +720,46 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
     
     // If no existing ISBN found and we have a valid ISBN, add it
     if (!foundExistingISBN && (isISBN10 || isISBN13)) {
-      const newIdAttr = "pub-id";
-      updatedIdentifiers.push({
-        _: sanitizedId,
-        $: { id: newIdAttr }
-      });
+      updatedISBNIdAttr = "pub-id";
       
-      // Add EPUB 3 identifier-type refinement for the new ISBN (EPUB 3 only)
       if (!isEpub2) {
-        meta.meta = meta.meta.filter(m => 
-          !(m.$?.refines === `#${newIdAttr}` && m.$?.property === "identifier-type")
-        );
-        
-        meta.meta.push({
-          $: { 
-            refines: `#${newIdAttr}`, 
-            property: "identifier-type",
-            scheme: "onix:codelist5"
-          },
-          _: isISBN13 ? "15" : "02"
+        // EPUB 3: identifier with id, no opf:scheme
+        updatedIdentifiers.push({
+          _: sanitizedId,
+          $: { id: updatedISBNIdAttr }
+        });
+      } else {
+        // EPUB 2: identifier with opf:scheme
+        updatedIdentifiers.push({
+          _: sanitizedId,
+          $: { id: updatedISBNIdAttr, "opf:scheme": "ISBN" }
         });
       }
       
       // Only update unique-identifier if there wasn't one before
       if (!uniqueIdRef && pkg.$) {
-        pkg.$["unique-identifier"] = newIdAttr;
+        pkg.$["unique-identifier"] = updatedISBNIdAttr;
       }
+    }
+    
+    // Add/update EPUB 3 identifier-type refinement for the ISBN
+    // This applies to both NEW and UPDATED ISBNs
+    if (!isEpub2 && updatedISBNIdAttr && (isISBN10 || isISBN13)) {
+      // Remove any existing identifier-type refinement for this identifier
+      meta.meta = meta.meta.filter(m => 
+        !(m.$?.refines === `#${updatedISBNIdAttr}` && m.$?.property === "identifier-type")
+      );
+      
+      // Add proper EPUB 3 identifier-type refinement using ONIX codelist 5
+      // 15 = ISBN-13, 02 = ISBN-10
+      meta.meta.push({
+        $: { 
+          refines: `#${updatedISBNIdAttr}`, 
+          property: "identifier-type",
+          scheme: "onix:codelist5"
+        },
+        _: isISBN13 ? "15" : "02"
+      });
     }
     
     meta["dc:identifier"] = updatedIdentifiers;
