@@ -58,7 +58,7 @@ function showSessionWarning() {
   
   const remaining = Math.ceil((SESSION_TIMEOUT_MS - (Date.now() - sessionStartTime)) / 60000);
   const warningText = banner.querySelector('.session-warning-text');
-  warningText.textContent = `⚠️ Your session will expire in ${remaining} minute${remaining !== 1 ? 's' : ''}. Please download your EPUB before the session ends.`;
+  warningText.textContent = `âš ï¸ Your session will expire in ${remaining} minute${remaining !== 1 ? 's' : ''}. Please download your EPUB before the session ends.`;
   
   banner.classList.remove('hidden');
 }
@@ -84,7 +84,7 @@ function sessionExpired() {
   // Update warning banner to show expired message
   const banner = document.getElementById('sessionWarningBanner');
   const warningText = banner.querySelector('.session-warning-text');
-  warningText.textContent = '❌ Your session has expired. Please upload your EPUB file again to continue editing.';
+  warningText.textContent = 'âŒ Your session has expired. Please upload your EPUB file again to continue editing.';
   banner.classList.remove('hidden');
   
   // Hide dismiss button since this is a permanent state
@@ -107,13 +107,13 @@ function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem('darkMode', isDark);
-  document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
+  document.getElementById('themeToggle').textContent = isDark ? 'â˜€ï¸' : 'ðŸŒ™';
 }
 
 // Load saved theme
 if (localStorage.getItem('darkMode') === 'true') {
   document.body.classList.add('dark-mode');
-  document.getElementById('themeToggle').textContent = '☀️';
+  document.getElementById('themeToggle').textContent = 'â˜€ï¸';
 }
 
 // Tooltip functionality
@@ -192,7 +192,7 @@ function showWarnings(warnings) {
     return;
   }
   
-  banner.innerHTML = warnings.map(w => `<div class="warning-item">⚠️ ${escapeHtml(w)}</div>`).join('');
+  banner.innerHTML = warnings.map(w => `<div class="warning-item">âš ï¸ ${escapeHtml(w)}</div>`).join('');
   banner.classList.remove('hidden');
 }
 
@@ -203,7 +203,7 @@ async function handleFile(file) {
   form.append('file', file);
 
   try {
-    const res = await fetch('/upload', {
+    const res = await fetch('upload', {
       method: 'POST',
       body: form
     });
@@ -274,7 +274,7 @@ async function resetMetadata() {
   if (!confirm('Reset all metadata to original values?')) return;
 
   try {
-    const res = await fetch('/reset', {
+    const res = await fetch('reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId })
@@ -345,7 +345,7 @@ async function validateLanguage() {
   
   languageValidationTimeout = setTimeout(async () => {
     try {
-      const res = await fetch(`/validate-language?code=${encodeURIComponent(code)}`);
+      const res = await fetch(`validate-language?code=${encodeURIComponent(code)}`);
       const result = await res.json();
       
       if (result.warning) {
@@ -378,7 +378,7 @@ async function normalizeMetadata() {
   const metadata = getCurrentMetadata();
   
   try {
-    const res = await fetch('/normalize', {
+    const res = await fetch('normalize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ metadata })
@@ -425,10 +425,10 @@ async function optimizeCover() {
   
   const btn = document.getElementById('optimizeBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Processing...';
+  btn.textContent = 'â³ Processing...';
   
   try {
-    const res = await fetch('/optimize-cover', {
+    const res = await fetch('optimize-cover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cover: currentCoverData })
@@ -448,7 +448,7 @@ async function optimizeCover() {
     alert('Failed to optimize cover');
   } finally {
     btn.disabled = false;
-    btn.textContent = '⚡ Compress';
+    btn.textContent = 'âš¡ Compress';
   }
 }
 
@@ -464,7 +464,7 @@ async function lookupISBN() {
   document.getElementById('lookupText').innerHTML = '<span class="spinner"></span> Looking up...';
 
   try {
-    const res = await fetch(`/lookup-isbn?isbn=${encodeURIComponent(isbn)}`);
+    const res = await fetch(`lookup-isbn?isbn=${encodeURIComponent(isbn)}`);
     const data = await res.json();
 
     if (data.candidates && data.candidates.length > 0) {
@@ -506,7 +506,7 @@ async function searchByTitle() {
   document.getElementById('searchText').innerHTML = '<span class="spinner"></span> Searching...';
 
   try {
-    const res = await fetch(`/search-title?title=${encodeURIComponent(title)}`);
+    const res = await fetch(`search-title?title=${encodeURIComponent(title)}`);
     const data = await res.json();
 
     if (data.candidates && data.candidates.length > 0) {
@@ -695,8 +695,8 @@ async function showCoverSearch() {
   const list = document.getElementById('coversList');
   const modalTitle = document.getElementById('coverModalTitle');
   
-  modalTitle.textContent = '🖼️ Select Cover Image';
-  list.innerHTML = '<div class="loading">🔍 Searching for covers...</div>';
+  modalTitle.textContent = 'ðŸ–¼ï¸ Select Cover Image';
+  list.innerHTML = '<div class="loading">ðŸ” Searching for covers...</div>';
   modal.classList.remove('hidden');
   
   try {
@@ -704,13 +704,13 @@ async function showCoverSearch() {
     if (title) params.append('query', title);
     if (isbn) params.append('isbn', isbn);
     
-    const res = await fetch(`/search-covers?${params}`);
+    const res = await fetch(`search-covers?${params}`);
     const data = await res.json();
     
     if (data.covers && data.covers.length > 0) {
       coverSearchResults = data.covers;
       coverSearchPage = 0;
-      modalTitle.textContent = `🖼️ Select Cover Image (${data.covers.length} results)`;
+      modalTitle.textContent = `ðŸ–¼ï¸ Select Cover Image (${data.covers.length} results)`;
       displayCoverPage();
     } else {
       list.innerHTML = '<div class="no-results">No covers found</div>';
@@ -748,7 +748,7 @@ function displayCoverPage() {
           onclick="changeCoverPage(-1)" 
           ${coverSearchPage === 0 ? 'disabled' : ''}
         >
-          ← Previous
+          â† Previous
         </button>
         <span class="page-indicator">Page ${coverSearchPage + 1} of ${totalPages}</span>
         <button 
@@ -756,7 +756,7 @@ function displayCoverPage() {
           onclick="changeCoverPage(1)" 
           ${coverSearchPage === totalPages - 1 ? 'disabled' : ''}
         >
-          Next →
+          Next â†’
         </button>
       </div>
     `;
@@ -777,7 +777,7 @@ async function selectCover(url) {
   closeCoverModal();
   
   try {
-    const res = await fetch('/fetch-cover', {
+    const res = await fetch('fetch-cover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, optimize: true })
@@ -880,7 +880,7 @@ function updateDiffPreview() {
     preview.classList.remove('hidden');
     preview.innerHTML = `
       <div class="diff-preview">
-        <h4>📋 Changes Preview</h4>
+        <h4>ðŸ“‹ Changes Preview</h4>
         ${changes.map(c => `
           <div class="diff-item">
             <div class="diff-field">${escapeHtml(c.field)}</div>
@@ -927,7 +927,7 @@ function updateOPDSPreview() {
     metaParts.push(year);
   }
   
-  const metaLine = metaParts.join(' • ') || 'No additional info';
+  const metaLine = metaParts.join(' â€¢ ') || 'No additional info';
   
   // Build subjects line - show all subjects
   const subjectsLine = subjects.length > 0 
@@ -982,7 +982,7 @@ async function downloadEPUB() {
   try {
     const metadata = getCurrentMetadata();
     
-    const res = await fetch('/download', {
+    const res = await fetch('download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1010,6 +1010,6 @@ async function downloadEPUB() {
     alert('Failed to create EPUB');
   } finally {
     btn.disabled = false;
-    document.getElementById('downloadText').textContent = '💾 Download Cleaned EPUB';
+    document.getElementById('downloadText').textContent = 'ðŸ’¾ Download Cleaned EPUB';
   }
 }
