@@ -205,6 +205,53 @@ body.dark-mode .session-warning-dismiss {
   transform: scale(1.02);
 }
 
+.upload-zone.uploading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.upload-zone.uploading .upload-icon {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+.upload-progress {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.upload-progress-bar {
+  width: 100%;
+  max-width: 300px;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  margin: 0.5rem auto;
+  overflow: hidden;
+}
+
+.upload-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress-bar-fill.indeterminate {
+  width: 30%;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 .upload-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
@@ -666,6 +713,19 @@ textarea {
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.opds-header-version {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: var(--bg-tertiary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .opds-preview-content {
