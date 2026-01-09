@@ -81,13 +81,10 @@ The application is distributed as a Docker container and can be run either behin
   docker compose up -d
 - The application listens on port 3007 by default.
 - Access it via http://localhost:3007, or expose it through a reverse proxy such as Caddy, Traefik, or Nginx
-- 
-## Planned Features (Roadmap)
-- Show EPUB version (2 or 3) of the file being edited.  
-- Add a loading indicator for large uploads (>30MB).  
+
 
 ## Like the project?
-Please consider buying me a coffe, i really do drink it alot!
+Please consider buying me a coffe, I really do drink it alot!
 <p>
   <a href="https://buymeacoffee.com/gjessing">
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="80" style="vertical-align: middle;">
