@@ -2,6 +2,7 @@ let sessionId = null;
 let uploadedFile = null;
 let originalMetadata = {};
 let currentCoverData = null;
+let originalCoverData = null;  // Store original cover for reset
 let coverChanged = false;
 
 let coverSearchResults = [];
@@ -245,6 +246,7 @@ async function handleFile(file) {
     const m = data.meta || {};
     originalMetadata = data.originalMeta || m;
     currentCoverData = data.cover;
+    originalCoverData = data.cover;  // Store original cover for reset
     epubVersion = data.epubVersion || '2.0';  // Store EPUB version
     
     // Start session timer (Part 2B)
@@ -342,11 +344,15 @@ async function resetMetadata() {
       document.getElementById('rights').value = m.rights || '';
       document.getElementById('subjects').value = (m.subjects || []).join(', ');
       
-      // Reset cover
+      // Reset cover to original
       coverChanged = false;
+      currentCoverData = originalCoverData;  // Restore original cover
       if (currentCoverData) {
         document.getElementById('coverPreview').innerHTML = 
           '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">';
+      } else {
+        document.getElementById('coverPreview').innerHTML = 
+          '<div class="cover-placeholder">No cover image</div>';
       }
       
       // Clear warnings
@@ -764,15 +770,18 @@ function displayCoverPage() {
   // Update modal title with result count
   modalTitle.textContent = 'Select Cover Image (' + coverSearchResults.length + ' results)';
   
-  list.innerHTML = pageCovers.map((cover, idx) => '\
-    <div class="cover-option" onclick="selectCover(\'' + cover.url + '\')">\
-      <img src="' + cover.url + '" alt="Cover option" loading="lazy" onerror="this.parentElement.style.display=\'none\'">\
+  list.innerHTML = pageCovers.map((cover, idx) => {
+    // Escape URL for use in JavaScript string (handle quotes and backslashes)
+    const escapedUrl = cover.url.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '\
+    <div class="cover-option" onclick="selectCover(\'' + escapedUrl + '\')">\
+      <img src="' + escapeHtml(cover.url) + '" alt="Cover option" loading="lazy" onerror="this.parentElement.style.display=\'none\'">\
       <div class="cover-info">\
         <div><strong>' + escapeHtml(cover.source) + '</strong></div>\
         <div class="cover-desc">' + escapeHtml(cover.description) + '</div>\
       </div>\
-    </div>\
-  ').join('');
+    </div>';
+  }).join('');
   
   // Add pagination controls if needed
   if (totalPages > 1 || totalPages < maxCoverPages) {
