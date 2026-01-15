@@ -82,6 +82,8 @@ The application is distributed as a Docker container and can be run either behin
 - The application listens on port 3007 by default.
 - Access it via http://localhost:3007, or expose it through a reverse proxy such as Caddy, Traefik, or Nginx
 
+## Found a bug or missing a feature?
+- Found a bug or have an idea for an improvement? Open an issue in the repository and I’ll take a look.
 
 ## Like the project?
 Please consider buying me a coffe, I really do drink it alot!
