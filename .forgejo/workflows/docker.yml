@@ -1,0 +1,54 @@
+# Forgejo Actions equivalent of .github/workflows/docker.yml.
+# Builds the image and pushes it to Forgejo's container registry. Note the
+# repo is EPUB-BookPrep on GitHub (image ghcr.io/gjessing1/epub-bookprep) but
+# epub-editor on Forgejo, so the image here is named epub-editor to match —
+# Forgejo links registry packages to the repo by name.
+#
+# Runner specifics (host-Docker-socket model, see torrential docs/forgejo.md):
+# - `runs-on: docker` -> catthehacker/ubuntu:act-latest; build/push run against
+#   the HOST daemon through the mounted socket.
+# - Pushes go to localhost:3000 (Forgejo's host-published HTTP port) because
+#   Caddy 413s large layer uploads via git.gjessing.io. Registry storage is
+#   hostname-agnostic, so the image is pulled as git.gjessing.io/... as usual.
+# - Auth is a PAT with write:package stored as the REGISTRY_TOKEN repo secret;
+#   the automatic GITHUB_TOKEN only gets package *read* on this instance.
+name: docker
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  # Public name — what deployments pull (HTTPS via Caddy).
+  IMAGE: git.gjessing.io/gjessing1/epub-editor
+  # Push name — straight to Forgejo's host-published port, avoiding Caddy.
+  PUSH_IMAGE: localhost:3000/gjessing1/epub-editor
+
+jobs:
+  build-and-push:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+
+      # Written directly instead of `docker login`: login pings the registry
+      # from the job container (where localhost:3000 is unreachable), but the
+      # push runs on the host daemon (where it works).
+      - name: Registry auth
+        run: |
+          mkdir -p ~/.docker
+          auth=$(printf 'gjessing1:%s' "${{ secrets.REGISTRY_TOKEN }}" | base64 -w0)
+          printf '{"auths":{"localhost:3000":{"auth":"%s"}}}' "$auth" > ~/.docker/config.json
+
+      - name: Build image
+        run: |
+          SHA_TAG="${GITHUB_SHA::7}"
+          docker build \
+            -t "$IMAGE:latest" -t "$IMAGE:$SHA_TAG" \
+            -t "$PUSH_IMAGE:latest" -t "$PUSH_IMAGE:$SHA_TAG" .
+
+      - name: Push image
+        run: |
+          SHA_TAG="${GITHUB_SHA::7}"
+          docker push "$PUSH_IMAGE:latest"
+          docker push "$PUSH_IMAGE:$SHA_TAG"
