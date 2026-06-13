@@ -7,11 +7,28 @@
   <meta name="keywords" content="HTML, CSS, JavaScript, EPUB, Metadata, Editor, epub editor, change ebook cover, online epub tool, compress epub images, isbn lookup">
   <meta name="description" content="Free selfhosted stateless EPUB editor. Clean metadata, fix language codes, swap covers, and optimize images. Supports ISBN lookup and EPUB 2/3 compatibility.">
   <title>EPUB BookPrep</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
-  <link rel="stylesheet" href="styles.css">
-</head>
 
+  <!-- PWA -->
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="BookPrep">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+  <link rel="apple-touch-icon" href="/favicon-192.png">
+
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/service-worker.js');
+      });
+    }
+  </script>
+</head>
 <body>
 
 <div class="container">
@@ -56,7 +73,7 @@
               🔍 Search
             </button>
             <button class="btn btn-secondary" onclick="optimizeCover()" id="optimizeBtn"
-  title="Resize to max 1600x2400 (keeps aspect ratio), convert PNG/transparent images to JPEG with white background, quality 90% (lossy) - reduces file size. Preview applied; original preserved in session until download.">
+  title="Resize to max 1600×2400 (keeps aspect ratio), convert PNG/transparent images to JPEG with white background, quality ≈ 90% (lossy) – reduces file size. Preview applied; original preserved in session until download.">
               ⚡ Compress
             </button>
           </div>
@@ -73,7 +90,7 @@
                 <div class="opds-details">
                   <div class="opds-title">Book Title</div>
                   <div class="opds-author">Author Name</div>
-                  <div class="opds-meta">Series - Publisher - 2024</div>
+                  <div class="opds-meta">Series • Publisher • 2024</div>
                 </div>
               </div>
             </div>
@@ -96,7 +113,7 @@
           <div class="form-group">
             <label>
               Title * 
-              <span class="field-hint tooltip-trigger" data-tooltip="dc:title - The main title of the book as it will appear in readers and library systems">ℹ️</span>
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:title - The main title of the book as it will appear in readers and library systems">ⓘ</span>
             </label>
             <input id="title" placeholder="Enter book title" oninput="updateDiffPreview()">
           </div>
@@ -104,7 +121,7 @@
           <div class="form-group">
             <label>
               Subtitle 
-              <span class="field-hint tooltip-trigger" data-tooltip="dc:title with title-type='subtitle' - Optional subtitle shown below the main title">ℹ️</span>
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:title with title-type='subtitle' - Optional subtitle shown below the main title">ⓘ</span>
             </label>
             <input id="subtitle" placeholder="Enter subtitle (optional)" oninput="updateDiffPreview()">
           </div>
@@ -112,7 +129,7 @@
           <div class="form-group">
             <label>
               Author * 
-              <span class="field-hint tooltip-trigger" data-tooltip="dc:creator - The primary author(s) of the book. Multiple authors can be comma-separated.">ℹ️</span>
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:creator - The primary author(s) of the book. Multiple authors can be comma-separated.">ⓘ</span>
             </label>
             <input id="author" placeholder="Enter author name" oninput="updateDiffPreview()">
           </div>
@@ -120,7 +137,7 @@
           <div class="form-group">
             <label>
               Contributors 
-              <span class="field-hint tooltip-trigger" data-tooltip="dc:contributor - Secondary contributors like editors, translators, illustrators. Comma-separated.">ℹ️</span>
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:contributor - Secondary contributors like editors, translators, illustrators. Comma-separated.">ⓘ</span>
             </label>
             <input id="contributors" placeholder="e.g., John Translator, Jane Editor" oninput="updateDiffPreview()">
           </div>
@@ -129,7 +146,7 @@
             <div class="form-group">
               <label>
                 Language 
-                <span class="field-hint tooltip-trigger" data-tooltip="dc:language - BCP 47 language code. Use 2-letter codes like 'en', 'nb', 'es'. 3-letter codes (e.g., 'eng') will be auto-converted.">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:language - BCP 47 language code. Use 2-letter codes like 'en', 'nb', 'es'. 3-letter codes (e.g., 'eng') will be auto-converted.">ⓘ</span>
               </label>
               <div class="language-input-group">
                 <input id="language" placeholder="e.g., en, nb, es" oninput="validateLanguage(); updateDiffPreview()">
@@ -150,7 +167,7 @@
                   <option value="nl">nl - Dutch</option>
                   <option value="sv">sv - Swedish</option>
                   <option value="no">no - Norwegian</option>
-                  <option value="nb">nb - Norwegian Bokmal</option>
+                  <option value="nb">nb - Norwegian Bokmål</option>
                   <option value="nn">nn - Norwegian Nynorsk</option>
                   <option value="da">da - Danish</option>
                   <option value="fi">fi - Finnish</option>
@@ -193,7 +210,7 @@
             <div class="form-group">
               <label>
                 Published Date 
-                <span class="field-hint tooltip-trigger" data-tooltip="dc:date - Publication date in YYYY-MM-DD or YYYY format">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:date - Publication date in YYYY-MM-DD or YYYY format">ⓘ</span>
               </label>
               <div class="date-input-wrapper">
                 <input id="date" type="text" placeholder="e.g., 2024-01-15 or 2024" oninput="updateDiffPreview()">
@@ -207,7 +224,7 @@
             <div class="form-group">
               <label>
                 ISBN 
-                <span class="field-hint tooltip-trigger" data-tooltip="dc:identifier - International Standard Book Number. Will be saved with proper EPUB 3 identifier-type metadata.">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:identifier - International Standard Book Number. Will be saved with proper EPUB 3 identifier-type metadata.">ⓘ</span>
               </label>
               <input id="identifier" placeholder="Enter ISBN" oninput="updateDiffPreview()">
             </div>
@@ -232,14 +249,14 @@
             <div class="form-group">
               <label>
                 Publisher 
-                <span class="field-hint tooltip-trigger" data-tooltip="dc:publisher - The publishing company or organization">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:publisher - The publishing company or organization">ⓘ</span>
               </label>
               <input id="publisher" placeholder="Publisher name" oninput="updateDiffPreview()">
             </div>
             <div class="form-group">
               <label>
                 Rights 
-                <span class="field-hint tooltip-trigger" data-tooltip="dc:rights - Copyright and licensing information">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="dc:rights - Copyright and licensing information">ⓘ</span>
               </label>
               <input id="rights" placeholder="Copyright information" oninput="updateDiffPreview()">
             </div>
@@ -249,14 +266,14 @@
             <div class="form-group">
               <label>
                 Series/Collection 
-                <span class="field-hint tooltip-trigger" data-tooltip="belongs-to-collection - The name of the book series this belongs to (EPUB 3 meta property)">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="belongs-to-collection - The name of the book series this belongs to (EPUB 3 meta property)">ⓘ</span>
               </label>
               <input id="series" placeholder="e.g., The Lord of the Rings" oninput="updateDiffPreview()">
             </div>
             <div class="form-group">
               <label>
                 Position in Series 
-                <span class="field-hint tooltip-trigger" data-tooltip="group-position - The book's position within the series (e.g., 1, 2, 3)">ℹ️</span>
+                <span class="field-hint tooltip-trigger" data-tooltip="group-position - The book's position within the series (e.g., 1, 2, 3)">ⓘ</span>
               </label>
               <input id="seriesIndex" type="number" min="1" step="1" placeholder="1" oninput="updateDiffPreview()">
             </div>
@@ -265,7 +282,7 @@
           <div class="form-group">
             <label>
               Summary 
-              <span class="field-hint tooltip-trigger" data-tooltip="dc:description - Book synopsis or description. HTML will be stripped during normalization.">ℹ️</span>
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:description - Book synopsis or description. HTML will be stripped during normalization.">ⓘ</span>
             </label>
             <textarea id="description" rows="4" placeholder="Book summary or description" oninput="updateDiffPreview()"></textarea>
           </div>
@@ -273,7 +290,7 @@
           <div class="form-group">
             <label>
               Categories 
-              <span class="field-hint tooltip-trigger" data-tooltip="dc:subject - Genre and subject tags, comma-separated. Used by readers for organization.">ℹ️</span>
+              <span class="field-hint tooltip-trigger" data-tooltip="dc:subject - Genre and subject tags, comma-separated. Used by readers for organization.">ⓘ</span>
             </label>
             <input id="subjects" placeholder="Fiction, Science Fiction, Adventure" oninput="updateDiffPreview()">
           </div>

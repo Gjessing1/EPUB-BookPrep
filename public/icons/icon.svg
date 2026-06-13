@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+
+  <!-- Book back cover / shadow -->
+  <rect x="116" y="120" width="296" height="272" rx="20" fill="#1e40af"/>
+
+  <!-- Open book pages (left + right) -->
+  <path d="M256 168
+           C212 148 160 144 128 152
+           V356
+           C160 348 212 352 256 372
+           Z" fill="white"/>
+  <path d="M256 168
+           C300 148 352 144 384 152
+           V356
+           C352 348 300 352 256 372
+           Z" fill="#f1f5f9"/>
+
+  <!-- Center spine -->
+  <rect x="250" y="168" width="12" height="204" rx="6" fill="#1e3a8a"/>
+
+  <!-- Text lines: left page -->
+  <rect x="152" y="196" width="84" height="11" rx="5.5" fill="#94a3b8"/>
+  <rect x="152" y="224" width="84" height="11" rx="5.5" fill="#cbd5e1"/>
+  <rect x="152" y="252" width="68" height="11" rx="5.5" fill="#cbd5e1"/>
+  <rect x="152" y="280" width="84" height="11" rx="5.5" fill="#cbd5e1"/>
+  <rect x="152" y="308" width="60" height="11" rx="5.5" fill="#cbd5e1"/>
+
+  <!-- Text lines: right page -->
+  <rect x="276" y="196" width="84" height="11" rx="5.5" fill="#94a3b8"/>
+  <rect x="276" y="224" width="84" height="11" rx="5.5" fill="#cbd5e1"/>
+  <rect x="276" y="252" width="68" height="11" rx="5.5" fill="#cbd5e1"/>
+  <rect x="276" y="280" width="84" height="11" rx="5.5" fill="#cbd5e1"/>
+  <rect x="276" y="308" width="60" height="11" rx="5.5" fill="#cbd5e1"/>
+
+  <!-- Bookmark ribbon -->
+  <path d="M324 120 H360 V196 L342 178 L324 196 Z" fill="#2563eb"/>
+</svg>
