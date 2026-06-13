@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from 'url';
 
 import { 
@@ -64,18 +65,20 @@ function validateMetadata(metadata) {
   
   const sanitized = {};
   const warnings = [];
-  
-  // Sanitize string fields
+
+  // Sanitize string fields.
+  // Optional fields use `!== undefined` so an empty string passes through —
+  // that's how the user clears a field (writeEpub removes empty fields).
   if (metadata.title) {
     sanitized.title = sanitizeString(metadata.title, MAX_LENGTHS.title);
   }
-  if (metadata.subtitle) {
+  if (metadata.subtitle !== undefined) {
     sanitized.subtitle = sanitizeString(metadata.subtitle, MAX_LENGTHS.subtitle);
   }
   if (metadata.author) {
     sanitized.author = sanitizeString(metadata.author, MAX_LENGTHS.author);
   }
-  if (metadata.publisher) {
+  if (metadata.publisher !== undefined) {
     sanitized.publisher = sanitizeString(metadata.publisher, MAX_LENGTHS.publisher);
   }
   if (metadata.identifier) {
@@ -93,16 +96,16 @@ function validateMetadata(metadata) {
       warnings.push('Language code format may be invalid');
     }
   }
-  if (metadata.date) {
+  if (metadata.date !== undefined) {
     sanitized.date = sanitizeString(metadata.date, MAX_LENGTHS.date);
   }
-  if (metadata.description) {
+  if (metadata.description !== undefined) {
     sanitized.description = sanitizeString(metadata.description, MAX_LENGTHS.description);
   }
-  if (metadata.rights) {
+  if (metadata.rights !== undefined) {
     sanitized.rights = sanitizeString(metadata.rights, MAX_LENGTHS.rights);
   }
-  if (metadata.series) {
+  if (metadata.series !== undefined) {
     sanitized.series = sanitizeString(metadata.series, MAX_LENGTHS.series);
   }
   if (metadata.seriesIndex) {
@@ -111,7 +114,7 @@ function validateMetadata(metadata) {
       sanitized.seriesIndex = idx;
     }
   }
-  if (metadata.contributors) {
+  if (metadata.contributors !== undefined) {
     sanitized.contributors = sanitizeString(metadata.contributors, MAX_LENGTHS.author * 3);
   }
   
@@ -141,13 +144,12 @@ function validateMetadata(metadata) {
 }
 
 const app = Fastify({
-  logger: true,
-  bodyLimit: 100 * 1024 * 1024 // 100MB - allows large JSON bodies (e.g., base64-encoded covers)
+  logger: true
 });
 
 await app.register(multipart, {
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB - allows large EPUB uploads
+    fileSize: 50 * 1024 * 1024 // 50 MB
   }
 });
 
@@ -187,7 +189,7 @@ function cleanupExpiredSessions() {
 setInterval(cleanupExpiredSessions, 60 * 1000);
 
 /**
- * Upload EPUB â†’ extract metadata + cover
+ * Upload EPUB → extract metadata + cover
  */
 app.post("/upload", async (req, reply) => {
   try {
@@ -216,7 +218,7 @@ app.post("/upload", async (req, reply) => {
     const cover = await getCoverImage(epub.zip, epub.opf, epub.opfPath);
 
     // Generate session ID and store data
-    const sessionId = Math.random().toString(36).substring(7);
+    const sessionId = crypto.randomUUID();
     sessions.set(sessionId, {
       buffer,
       epub,
@@ -231,7 +233,7 @@ app.post("/upload", async (req, reply) => {
       warnings.push(meta.languageWarning);
     }
     if (meta.languageConverted) {
-      warnings.push(`Language code normalized: "${meta.languageConverted}" â†’ "${meta.language}"`);
+      warnings.push(`Language code normalized: "${meta.languageConverted}" → "${meta.language}"`);
     }
 
     reply.send({ 
@@ -240,7 +242,6 @@ app.post("/upload", async (req, reply) => {
       originalMeta,
       cover,
       filename: file.filename,
-      epubVersion: epub.version,
       warnings: warnings.length > 0 ? warnings : undefined
     });
   } catch (err) {
@@ -283,24 +284,10 @@ app.get("/lookup-isbn", async (req, reply) => {
     }
 
     const result = await lookupISBN(isbn);
-    
-    // Handle new response format with errors
-    if (result && result.candidates !== undefined) {
-      // New format: { candidates: [], errors: [] }
-      reply.send({ 
-        candidates: result.candidates || [],
-        errors: result.errors || []
-      });
-      return;
-    }
-    
-    // Legacy array format
-    if (!result || result.length === 0) {
-      reply.send({ candidates: [], errors: [] });
-      return;
-    }
-
-    reply.send({ candidates: result, errors: [] });
+    reply.send({
+      candidates: result?.candidates || [],
+      errors: result?.errors || []
+    });
   } catch (err) {
     console.error("ISBN LOOKUP ERROR:", err);
     reply.code(500).send({ 
@@ -324,24 +311,10 @@ app.get("/search-title", async (req, reply) => {
     }
 
     const result = await searchByTitle(title);
-    
-    // Handle new response format with errors
-    if (result && result.candidates !== undefined) {
-      // New format: { candidates: [], errors: [] }
-      reply.send({ 
-        candidates: result.candidates || [],
-        errors: result.errors || []
-      });
-      return;
-    }
-    
-    // Legacy array format
-    if (!result || result.length === 0) {
-      reply.send({ candidates: [], errors: [] });
-      return;
-    }
-
-    reply.send({ candidates: result, errors: [] });
+    reply.send({
+      candidates: result?.candidates || [],
+      errors: result?.errors || []
+    });
   } catch (err) {
     console.error("TITLE SEARCH ERROR:", err);
     reply.code(500).send({ 
@@ -353,19 +326,17 @@ app.get("/search-title", async (req, reply) => {
 
 /**
  * Cover Search endpoint - returns multiple cover options
- * Supports offset parameter for loading additional results
  */
 app.get("/search-covers", async (req, reply) => {
   try {
-    const { query, isbn, offset } = req.query;
+    const { query, isbn } = req.query;
     
     if (!query && !isbn) {
       reply.code(400).send({ error: "Query or ISBN required" });
       return;
     }
 
-    const offsetNum = offset ? parseInt(offset, 10) : 0;
-    const covers = await searchCovers(query, isbn, offsetNum);
+    const covers = await searchCovers(query, isbn);
     reply.send({ covers });
   } catch (err) {
     console.error("COVER SEARCH ERROR:", err);
@@ -373,15 +344,44 @@ app.get("/search-covers", async (req, reply) => {
   }
 });
 
+// Hosts the cover sources actually serve images from — keeps /fetch-cover
+// from being used to make the server request arbitrary/internal URLs (SSRF)
+const ALLOWED_COVER_HOSTS = [
+  'openlibrary.org',
+  'archive.org',
+  'googleapis.com',
+  'google.com',
+  'googleusercontent.com',
+  'gstatic.com',
+  'apple.com',
+  'mzstatic.com'
+];
+
+function isAllowedCoverUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    const host = parsed.hostname.toLowerCase();
+    return ALLOWED_COVER_HOSTS.some(h => host === h || host.endsWith('.' + h));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fetch and optimize cover image
  */
 app.post("/fetch-cover", async (req, reply) => {
   try {
     const { url, optimize } = req.body;
-    
+
     if (!url) {
       reply.code(400).send({ error: "URL required" });
+      return;
+    }
+
+    if (!isAllowedCoverUrl(url)) {
+      reply.code(400).send({ error: "Cover URL host not allowed" });
       return;
     }
 
@@ -509,7 +509,7 @@ app.post("/download", async (req, reply) => {
     const session = sessions.get(sessionId);
     const { epub, filename } = session;
 
-    // Generate smart filename: Title - Author.epub
+    // Generate smart filename: Title (YYYY) - Author.epub
     let downloadFilename = filename;
     
     // Get author name - support both array and string format
@@ -518,19 +518,13 @@ app.post("/download", async (req, reply) => {
       : sanitizedMetadata.author;
     
     if (sanitizedMetadata.title && authorName) {
-      // Remove invalid filename chars and control characters
-      const sanitizeFilename = (str) => str
-        .replace(/[<>:"/\\|?*\x00-\x1F\x7F]/g, '') // Remove invalid chars and control chars
-        .replace(/[\r\n]+/g, ' ')  // Replace newlines with space
-        .trim()
-        .substring(0, 200);  // Limit length
+      const year = sanitizedMetadata.date ? sanitizedMetadata.date.substring(0, 4) : '';
+      const title = sanitizedMetadata.title.replace(/[<>:"/\\|?*]/g, ''); // Remove invalid filename chars
+      const author = authorName.replace(/[<>:"/\\|?*]/g, '');
       
-      const title = sanitizeFilename(sanitizedMetadata.title);
-      const author = sanitizeFilename(authorName);
-      
-      if (title && author) {
-        downloadFilename = `${title} - ${author}.epub`;
-      }
+      downloadFilename = year 
+        ? `${title} (${year}) - ${author}.epub`
+        : `${title} - ${author}.epub`;
     }
 
     // Prepare cover buffer if cover was changed
@@ -556,9 +550,8 @@ app.post("/download", async (req, reply) => {
       coverBuffer
     );
 
-    // Clean up session after a delay
-    setTimeout(() => sessions.delete(sessionId), 60000);
-
+    // Keep the session alive so the user can tweak and re-download;
+    // the periodic cleanup removes it after the normal 30-minute timeout.
     reply
       .header("Content-Type", "application/epub+zip")
       .header("Content-Disposition", `attachment; filename="${downloadFilename}"`)
@@ -570,10 +563,11 @@ app.post("/download", async (req, reply) => {
 });
 
 // Start server
+const PORT = Number(process.env.PORT) || 3007;
 const start = async () => {
   try {
-    await app.listen({ port: 3007, host: '0.0.0.0' });
-    console.log("Server running at http://localhost:3007");
+    await app.listen({ port: PORT, host: '0.0.0.0' });
+    console.log(`Server running at http://localhost:${PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

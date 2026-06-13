@@ -2,17 +2,11 @@ let sessionId = null;
 let uploadedFile = null;
 let originalMetadata = {};
 let currentCoverData = null;
-let originalCoverData = null;  // Store original cover for reset
+let originalCoverData = null;
 let coverChanged = false;
 
 let coverSearchResults = [];
 let coverSearchPage = 0;
-let coverSearchQuery = '';  // Store query for loading more covers
-let coverSearchIsbn = '';   // Store ISBN for loading more covers
-let maxCoverPages = 6;      // Maximum pages (6 pages × 6 images = 36 images)
-
-// Store EPUB version
-let epubVersion = null;
 
 // Track if authors came as array from server
 let authorsIsArray = false;
@@ -65,7 +59,7 @@ function showSessionWarning() {
   
   const remaining = Math.ceil((SESSION_TIMEOUT_MS - (Date.now() - sessionStartTime)) / 60000);
   const warningText = banner.querySelector('.session-warning-text');
-  warningText.textContent = 'Warning: Your session will expire in ' + remaining + ' minute' + (remaining !== 1 ? 's' : '') + '. Please download your EPUB before the session ends.';
+  warningText.textContent = `⚠️ Your session will expire in ${remaining} minute${remaining !== 1 ? 's' : ''}. Please download your EPUB before the session ends.`;
   
   banner.classList.remove('hidden');
 }
@@ -91,7 +85,7 @@ function sessionExpired() {
   // Update warning banner to show expired message
   const banner = document.getElementById('sessionWarningBanner');
   const warningText = banner.querySelector('.session-warning-text');
-  warningText.textContent = 'Your session has expired. Please upload your EPUB file again to continue editing.';
+  warningText.textContent = '❌ Your session has expired. Please upload your EPUB file again to continue editing.';
   banner.classList.remove('hidden');
   
   // Hide dismiss button since this is a permanent state
@@ -114,13 +108,13 @@ function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem('darkMode', isDark);
-  document.getElementById('themeToggle').textContent = isDark ? 'Sun' : 'Moon';
+  document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
 }
 
 // Load saved theme
 if (localStorage.getItem('darkMode') === 'true') {
   document.body.classList.add('dark-mode');
-  document.getElementById('themeToggle').textContent = 'Sun';
+  document.getElementById('themeToggle').textContent = '☀️';
 }
 
 // Tooltip functionality
@@ -183,7 +177,7 @@ document.getElementById('coverInput').addEventListener('change', (e) => {
     reader.onload = (e) => {
       currentCoverData = e.target.result.split(',')[1]; // Get base64 without prefix
       document.getElementById('coverPreview').innerHTML = 
-        '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">';
+        `<img src="data:image/jpeg;base64,${currentCoverData}" alt="Cover">`;
       coverChanged = true;
       updateDiffPreview();
       updateOPDSPreview();
@@ -199,7 +193,7 @@ function showWarnings(warnings) {
     return;
   }
   
-  banner.innerHTML = warnings.map(w => '<div class="warning-item">Warning: ' + escapeHtml(w) + '</div>').join('');
+  banner.innerHTML = warnings.map(w => `<div class="warning-item">⚠️ ${escapeHtml(w)}</div>`).join('');
   banner.classList.remove('hidden');
 }
 
@@ -208,26 +202,9 @@ async function handleFile(file) {
 
   const form = new FormData();
   form.append('file', file);
-  
-  // Show loading state
-  const uploadZone = document.getElementById('uploadZone');
-  const originalContent = uploadZone.innerHTML;
-  const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-  
-  uploadZone.classList.add('uploading');
-  uploadZone.innerHTML = '\
-    <div class="upload-icon">📤</div>\
-    <h3>Processing...</h3>\
-    <p>' + escapeHtml(file.name) + ' (' + fileSizeMB + ' MB)</p>\
-    <div class="upload-progress">\
-      <div class="upload-progress-bar">\
-        <div class="upload-progress-bar-fill indeterminate"></div>\
-      </div>\
-      <span>This may take a moment for large files</span>\
-    </div>';
 
   try {
-    const res = await fetch('upload', {
+    const res = await fetch('/upload', {
       method: 'POST',
       body: form
     });
@@ -235,9 +212,6 @@ async function handleFile(file) {
     if (!res.ok) {
       const error = await res.json();
       alert(error.error || 'Upload failed');
-      // Restore original upload zone
-      uploadZone.classList.remove('uploading');
-      uploadZone.innerHTML = originalContent;
       return;
     }
 
@@ -246,8 +220,8 @@ async function handleFile(file) {
     const m = data.meta || {};
     originalMetadata = data.originalMeta || m;
     currentCoverData = data.cover;
-    originalCoverData = data.cover;  // Store original cover for reset
-    epubVersion = data.epubVersion || '2.0';  // Store EPUB version
+    originalCoverData = data.cover;
+    coverChanged = false;
     
     // Start session timer (Part 2B)
     startSessionTimer();
@@ -282,25 +256,18 @@ async function handleFile(file) {
     // Show cover
     if (data.cover) {
       document.getElementById('coverPreview').innerHTML = 
-        '<img src="data:image/jpeg;base64,' + data.cover + '" alt="Cover">';
+        `<img src="data:image/jpeg;base64,${data.cover}" alt="Cover">`;
     }
 
     // Show any warnings
     showWarnings(data.warnings);
 
-    // Restore upload zone and show editor
-    uploadZone.classList.remove('uploading');
-    uploadZone.innerHTML = originalContent;
-    
     document.getElementById('editor').classList.remove('hidden');
     updateDiffPreview();
     updateOPDSPreview();
   } catch (err) {
     console.error(err);
     alert('Failed to process EPUB');
-    // Restore original upload zone
-    uploadZone.classList.remove('uploading');
-    uploadZone.innerHTML = originalContent;
   }
 }
 
@@ -310,7 +277,7 @@ async function resetMetadata() {
   if (!confirm('Reset all metadata to original values?')) return;
 
   try {
-    const res = await fetch('reset', {
+    const res = await fetch('/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId })
@@ -344,14 +311,14 @@ async function resetMetadata() {
       document.getElementById('rights').value = m.rights || '';
       document.getElementById('subjects').value = (m.subjects || []).join(', ');
       
-      // Reset cover to original
+      // Reset cover back to the one from the uploaded file
       coverChanged = false;
-      currentCoverData = originalCoverData;  // Restore original cover
+      currentCoverData = originalCoverData;
       if (currentCoverData) {
-        document.getElementById('coverPreview').innerHTML = 
-          '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">';
+        document.getElementById('coverPreview').innerHTML =
+          `<img src="data:image/jpeg;base64,${currentCoverData}" alt="Cover">`;
       } else {
-        document.getElementById('coverPreview').innerHTML = 
+        document.getElementById('coverPreview').innerHTML =
           '<div class="cover-placeholder">No cover image</div>';
       }
       
@@ -385,14 +352,14 @@ async function validateLanguage() {
   
   languageValidationTimeout = setTimeout(async () => {
     try {
-      const res = await fetch('validate-language?code=' + encodeURIComponent(code));
+      const res = await fetch(`/validate-language?code=${encodeURIComponent(code)}`);
       const result = await res.json();
       
       if (result.warning) {
         warningEl.textContent = result.warning;
         warningEl.classList.remove('hidden');
       } else if (result.converted) {
-        warningEl.textContent = 'Will be normalized to "' + result.code + '"';
+        warningEl.textContent = `Will be normalized to "${result.code}"`;
         warningEl.classList.remove('hidden');
         warningEl.classList.add('info');
       } else {
@@ -418,7 +385,7 @@ async function normalizeMetadata() {
   const metadata = getCurrentMetadata();
   
   try {
-    const res = await fetch('normalize', {
+    const res = await fetch('/normalize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ metadata })
@@ -465,10 +432,10 @@ async function optimizeCover() {
   
   const btn = document.getElementById('optimizeBtn');
   btn.disabled = true;
-  btn.textContent = 'Processing...';
+  btn.textContent = '⏳ Processing...';
   
   try {
-    const res = await fetch('optimize-cover', {
+    const res = await fetch('/optimize-cover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cover: currentCoverData })
@@ -478,7 +445,7 @@ async function optimizeCover() {
       const data = await res.json();
       currentCoverData = data.cover;
       document.getElementById('coverPreview').innerHTML = 
-        '<img src="data:image/jpeg;base64,' + data.cover + '" alt="Cover">';
+        `<img src="data:image/jpeg;base64,${data.cover}" alt="Cover">`;
       coverChanged = true;
       updateDiffPreview();
       updateOPDSPreview();
@@ -488,7 +455,7 @@ async function optimizeCover() {
     alert('Failed to optimize cover');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Compress';
+    btn.textContent = '⚡ Compress';
   }
 }
 
@@ -504,21 +471,21 @@ async function lookupISBN() {
   document.getElementById('lookupText').innerHTML = '<span class="spinner"></span> Looking up...';
 
   try {
-    const res = await fetch('lookup-isbn?isbn=' + encodeURIComponent(isbn));
+    const res = await fetch(`/lookup-isbn?isbn=${encodeURIComponent(isbn)}`);
     const data = await res.json();
 
     if (data.candidates && data.candidates.length > 0) {
       showCandidatesModal(data.candidates);
       // Show warnings if some sources failed (Task 4)
       if (data.errors && data.errors.length > 0) {
-        const errorMsgs = data.errors.map(e => e.message || (e.source + ': Error')).join('\n');
+        const errorMsgs = data.errors.map(e => e.message || `${e.source}: Error`).join('\n');
         console.warn('Partial lookup failures:', errorMsgs);
       }
     } else {
       // Show detailed error message (Task 4)
       let msg = 'No metadata found for this ISBN';
       if (data.errors && data.errors.length > 0) {
-        const errorDetails = data.errors.map(e => e.message || (e.source + ': unavailable')).join('; ');
+        const errorDetails = data.errors.map(e => e.message || `${e.source}: unavailable`).join('; ');
         msg += '\n\nDetails: ' + errorDetails;
       }
       alert(msg);
@@ -546,21 +513,21 @@ async function searchByTitle() {
   document.getElementById('searchText').innerHTML = '<span class="spinner"></span> Searching...';
 
   try {
-    const res = await fetch('search-title?title=' + encodeURIComponent(title));
+    const res = await fetch(`/search-title?title=${encodeURIComponent(title)}`);
     const data = await res.json();
 
     if (data.candidates && data.candidates.length > 0) {
       showCandidatesModal(data.candidates);
       // Show warnings if some sources failed (Task 4)
       if (data.errors && data.errors.length > 0) {
-        const errorMsgs = data.errors.map(e => e.message || (e.source + ': Error')).join('\n');
+        const errorMsgs = data.errors.map(e => e.message || `${e.source}: Error`).join('\n');
         console.warn('Partial search failures:', errorMsgs);
       }
     } else {
       // Show detailed error message (Task 4)
       let msg = 'No results found';
       if (data.errors && data.errors.length > 0) {
-        const errorDetails = data.errors.map(e => e.message || (e.source + ': unavailable')).join('; ');
+        const errorDetails = data.errors.map(e => e.message || `${e.source}: unavailable`).join('; ');
         msg += '\n\nDetails: ' + errorDetails;
       }
       alert(msg);
@@ -578,57 +545,65 @@ function showCandidatesModal(candidates) {
   const modal = document.getElementById('candidatesModal');
   const list = document.getElementById('candidatesList');
   
+  // ---- replace the template builder with this block (Task 10A) ----
   list.innerHTML = candidates.map((candidate, idx) => {
-    // Build list of all available fields
+    // Build list of all available fields (unchanged)
     const fields = [];
-    if (candidate.title) fields.push('<strong>Title:</strong> ' + escapeHtml(candidate.title));
-    if (candidate.author) fields.push('<strong>Author:</strong> ' + escapeHtml(candidate.author));
-    if (candidate.isbn) fields.push('<strong>ISBN:</strong> ' + escapeHtml(candidate.isbn));
-    if (candidate.publisher) fields.push('<strong>Publisher:</strong> ' + escapeHtml(candidate.publisher));
-    if (candidate.date) fields.push('<strong>Date:</strong> ' + escapeHtml(candidate.date));
-    if (candidate.language) fields.push('<strong>Language:</strong> ' + escapeHtml(candidate.language));
+    if (candidate.title) fields.push(`<strong>Title:</strong> ${escapeHtml(candidate.title)}`);
+    if (candidate.author) fields.push(`<strong>Author:</strong> ${escapeHtml(candidate.author)}`);
+    if (candidate.isbn) fields.push(`<strong>ISBN:</strong> ${escapeHtml(candidate.isbn)}`);
+    if (candidate.publisher) fields.push(`<strong>Publisher:</strong> ${escapeHtml(candidate.publisher)}`);
+    if (candidate.date) fields.push(`<strong>Date:</strong> ${escapeHtml(candidate.date)}`);
+    if (candidate.language) fields.push(`<strong>Language:</strong> ${escapeHtml(candidate.language)}`);
     if (candidate.description) {
       const desc = candidate.description.substring(0, 200);
-      fields.push('<strong>Description:</strong> ' + escapeHtml(desc) + (candidate.description.length > 200 ? '...' : ''));
+      fields.push(`<strong>Description:</strong> ${escapeHtml(desc)}${candidate.description.length > 200 ? '...' : ''}`);
     }
     if (candidate.subjects && candidate.subjects.length) {
-      fields.push('<strong>Subjects:</strong> ' + candidate.subjects.map(s => escapeHtml(s)).join(', '));
+      fields.push(`<strong>Subjects:</strong> ${candidate.subjects.map(s => escapeHtml(s)).join(', ')}`);
     }
 
     const noISBNNote = (!candidate.isbn && candidate.source === 'Apple Books')
       ? '<div class="candidate-note">Note: Apple Books results do not include ISBN</div>'
       : '';
 
-    return '\
-      <div class="candidate-card">\
-        <div class="candidate-main">\
-          <div class="candidate-header">\
-            <div class="candidate-title-block">\
-              <div class="candidate-title-row">\
-                <strong class="candidate-title">' + escapeHtml(candidate.title || 'Unknown Title') + '</strong>\
-                <span class="source-badge">' + escapeHtml(candidate.source || 'Unknown') + '</span>\
-              </div>\
-            </div>\
-          </div>\
-          <div class="candidate-details">\
-            ' + fields.map(f => '<div>' + f + '</div>').join('') + '\
-            ' + noISBNNote + '\
-          </div>\
-          <div class="candidate-actions">\
-            <button class="btn btn-primary btn-small" onclick="applyCandidate(' + idx + ')">\
-              Apply All Fields\
-            </button>\
-            <button class="btn btn-secondary btn-small" onclick="selectiveApply(' + idx + ')">\
-              Select Fields\
-            </button>\
-          </div>\
-        </div>\
-        <div class="candidate-cover-wrap">\
-          ' + (candidate.coverUrl
-            ? '<img src="' + candidate.coverUrl + '" alt="Cover" class="candidate-cover">'
-            : '<div class="candidate-cover placeholder">No image</div>') + '\
-        </div>\
-      </div>';
+    // New responsive card structure: content left, cover right (desktop)
+    return `
+      <div class="candidate-card">
+        <div class="candidate-main">
+          <div class="candidate-header">
+            <div class="candidate-title-block">
+              <div class="candidate-title-row">
+                <strong class="candidate-title">${escapeHtml(candidate.title || 'Unknown Title')}</strong>
+                <span class="source-badge">${escapeHtml(candidate.source || 'Unknown')}</span>
+              </div>
+
+
+            </div>
+          </div>
+
+          <div class="candidate-details">
+            ${fields.map(f => `<div>${f}</div>`).join('')}
+            ${noISBNNote}
+          </div>
+
+          <div class="candidate-actions">
+            <button class="btn btn-primary btn-small" onclick="applyCandidate(${idx})">
+              Apply All Fields
+            </button>
+            <button class="btn btn-secondary btn-small" onclick="selectiveApply(${idx})">
+              Select Fields
+            </button>
+          </div>
+        </div>
+
+        <div class="candidate-cover-wrap" aria-hidden="${candidate.coverUrl ? 'false' : 'true'}">
+          ${candidate.coverUrl
+            ? `<img src="${escapeHtml(candidate.coverUrl)}" alt="Cover for ${escapeHtml(candidate.title || 'candidate')}" class="candidate-cover">`
+            : `<div class="candidate-cover placeholder">No image</div>`}
+        </div>
+      </div>
+    `;
   }).join('');
   
   modal.classList.remove('hidden');
@@ -663,49 +638,46 @@ function selectiveApply(idx) {
   const candidate = window.currentCandidates[idx];
   const fields = [];
   
-  // Store element ID (for DOM), value (direct value to apply), and label for display
-  if (candidate.title) fields.push({ elementId: 'title', label: 'Title', value: candidate.title });
-  if (candidate.author) fields.push({ elementId: 'author', label: 'Author', value: candidate.author });
-  if (candidate.isbn) fields.push({ elementId: 'identifier', label: 'ISBN', value: candidate.isbn });
-  if (candidate.publisher) fields.push({ elementId: 'publisher', label: 'Publisher', value: candidate.publisher });
-  if (candidate.date) fields.push({ elementId: 'date', label: 'Date', value: candidate.date });
-  if (candidate.language) fields.push({ elementId: 'language', label: 'Language', value: candidate.language });
-  if (candidate.description) fields.push({ elementId: 'description', label: 'Description', value: candidate.description });
-  if (candidate.subjects && candidate.subjects.length) {
-    fields.push({ elementId: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
-  }
-  
-  // Store fields for applySelectedFields to use
-  window.currentSelectiveFields = fields;
+  if (candidate.title) fields.push({ key: 'title', label: 'Title', value: candidate.title });
+  if (candidate.author) fields.push({ key: 'author', label: 'Author', value: candidate.author });
+  // Only show ISBN if it exists
+  if (candidate.isbn) fields.push({ key: 'identifier', label: 'ISBN', value: candidate.isbn });
+  if (candidate.publisher) fields.push({ key: 'publisher', label: 'Publisher', value: candidate.publisher });
+  if (candidate.date) fields.push({ key: 'date', label: 'Date', value: candidate.date });
+  if (candidate.language) fields.push({ key: 'language', label: 'Language', value: candidate.language });
+  if (candidate.description) fields.push({ key: 'description', label: 'Description', value: candidate.description });
+  if (candidate.subjects) fields.push({ key: 'subjects', label: 'Subjects', value: candidate.subjects.join(', ') });
   
   const list = document.getElementById('candidatesList');
-  list.innerHTML = '\
-    <div class="field-selector">\
-      <h4>Select fields to apply:</h4>\
-      ' + fields.map((f, i) => '\
-        <label class="field-checkbox">\
-          <input type="checkbox" data-field-index="' + i + '" checked>\
-          <strong>' + f.label + ':</strong> ' + escapeHtml(String(f.value).substring(0, 100)) + (String(f.value).length > 100 ? '...' : '') + '\
-        </label>\
-      ').join('') + '\
-      <div class="modal-footer">\
-        <button class="btn btn-secondary" onclick="showCandidatesModal(window.currentCandidates)">Back</button>\
-        <button class="btn btn-primary" onclick="applySelectedFields()">Apply Selected</button>\
-      </div>\
-    </div>';
+  list.innerHTML = `
+    <div class="field-selector">
+      <h4>Select fields to apply:</h4>
+      ${fields.map(f => `
+        <label class="field-checkbox">
+          <input type="checkbox" value="${f.key}" checked>
+          <strong>${f.label}:</strong> ${escapeHtml(f.value.substring(0, 100))}${f.value.length > 100 ? '...' : ''}
+        </label>
+      `).join('')}
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="showCandidatesModal(window.currentCandidates)">Back</button>
+        <button class="btn btn-primary" onclick="applySelectedFields(${idx})">Apply Selected</button>
+      </div>
+    </div>
+  `;
 }
 
-function applySelectedFields() {
+function applySelectedFields(idx) {
+  const candidate = window.currentCandidates[idx];
   const checkboxes = document.querySelectorAll('.field-checkbox input:checked');
-  const fields = window.currentSelectiveFields || [];
   
   checkboxes.forEach(cb => {
-    const fieldIndex = parseInt(cb.dataset.fieldIndex, 10);
-    if (!isNaN(fieldIndex) && fields[fieldIndex]) {
-      const field = fields[fieldIndex];
-      const element = document.getElementById(field.elementId);
-      if (element && field.value !== undefined && field.value !== null) {
-        element.value = field.value;
+    const key = cb.value;
+    const value = candidate[key];
+    if (value) {
+      if (key === 'subjects' && Array.isArray(value)) {
+        document.getElementById(key).value = value.join(', ');
+      } else {
+        document.getElementById(key).value = value;
       }
     }
   });
@@ -724,16 +696,12 @@ async function showCoverSearch() {
     return;
   }
   
-  // Store search parameters for loading more
-  coverSearchQuery = title;
-  coverSearchIsbn = isbn;
-  
   const modal = document.getElementById('coverModal');
   const list = document.getElementById('coversList');
   const modalTitle = document.getElementById('coverModalTitle');
   
-  modalTitle.textContent = 'Select Cover Image';
-  list.innerHTML = '<div class="loading">Searching for covers...</div>';
+  modalTitle.textContent = '🖼️ Select Cover Image';
+  list.innerHTML = '<div class="loading">🔍 Searching for covers...</div>';
   modal.classList.remove('hidden');
   
   try {
@@ -741,13 +709,13 @@ async function showCoverSearch() {
     if (title) params.append('query', title);
     if (isbn) params.append('isbn', isbn);
     
-    const res = await fetch('search-covers?' + params);
+    const res = await fetch(`/search-covers?${params}`);
     const data = await res.json();
     
     if (data.covers && data.covers.length > 0) {
       coverSearchResults = data.covers;
       coverSearchPage = 0;
-      modalTitle.textContent = 'Select Cover Image (' + data.covers.length + ' results)';
+      modalTitle.textContent = `🖼️ Select Cover Image (${data.covers.length} results)`;
       displayCoverPage();
     } else {
       list.innerHTML = '<div class="no-results">No covers found</div>';
@@ -760,62 +728,45 @@ async function showCoverSearch() {
 
 function displayCoverPage() {
   const list = document.getElementById('coversList');
-  const modalTitle = document.getElementById('coverModalTitle');
   const itemsPerPage = 6;
   const totalPages = Math.ceil(coverSearchResults.length / itemsPerPage);
   const start = coverSearchPage * itemsPerPage;
   const end = start + itemsPerPage;
   const pageCovers = coverSearchResults.slice(start, end);
   
-  // Update modal title with result count
-  modalTitle.textContent = 'Select Cover Image (' + coverSearchResults.length + ' results)';
-  
-  list.innerHTML = pageCovers.map((cover, idx) => {
-    // Escape URL for use in JavaScript string (handle quotes and backslashes)
-    const escapedUrl = cover.url.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    return '\
-    <div class="cover-option" onclick="selectCover(\'' + escapedUrl + '\')">\
-      <img src="' + escapeHtml(cover.url) + '" alt="Cover option" loading="lazy" onerror="this.parentElement.style.display=\'none\'">\
-      <div class="cover-info">\
-        <div><strong>' + escapeHtml(cover.source) + '</strong></div>\
-        <div class="cover-desc">' + escapeHtml(cover.description) + '</div>\
-      </div>\
-    </div>';
-  }).join('');
+  // Reference covers by index instead of interpolating URLs into onclick,
+  // so quotes/special chars in third-party URLs can't break out of the markup
+  list.innerHTML = pageCovers.map((cover, idx) => `
+    <div class="cover-option" onclick="selectCoverAt(${start + idx})">
+      <img src="${escapeHtml(cover.url)}" alt="Cover option" loading="lazy" onerror="this.parentElement.style.display='none'">
+      <div class="cover-info">
+        <div><strong>${escapeHtml(cover.source)}</strong></div>
+        <div class="cover-desc">${escapeHtml(cover.description)}</div>
+      </div>
+    </div>
+  `).join('');
   
   // Add pagination controls if needed
-  if (totalPages > 1 || totalPages < maxCoverPages) {
-    const isLastPage = coverSearchPage === totalPages - 1;
-    const canLoadMore = isLastPage && totalPages < maxCoverPages;
-    
-    const paginationHTML = '\
-      <div class="cover-pagination">\
-        <button \
-          class="btn btn-secondary btn-small" \
-          onclick="changeCoverPage(-1)" \
-          ' + (coverSearchPage === 0 ? 'disabled' : '') + '\
-        >\
-          Previous\
-        </button>\
-        <span class="page-indicator">Page ' + (coverSearchPage + 1) + ' of ' + totalPages + '</span>\
-        ' + (canLoadMore ? '\
-          <button \
-            class="btn btn-primary btn-small" \
-            onclick="loadMoreCovers()" \
-            id="loadMoreBtn"\
-          >\
-            Load More\
-          </button>\
-        ' : '\
-          <button \
-            class="btn btn-secondary btn-small" \
-            onclick="changeCoverPage(1)" \
-            ' + (isLastPage ? 'disabled' : '') + '\
-          >\
-            Next\
-          </button>\
-        ') + '\
-      </div>';
+  if (totalPages > 1) {
+    const paginationHTML = `
+      <div class="cover-pagination">
+        <button 
+          class="btn btn-secondary btn-small" 
+          onclick="changeCoverPage(-1)" 
+          ${coverSearchPage === 0 ? 'disabled' : ''}
+        >
+          ← Previous
+        </button>
+        <span class="page-indicator">Page ${coverSearchPage + 1} of ${totalPages}</span>
+        <button 
+          class="btn btn-secondary btn-small" 
+          onclick="changeCoverPage(1)" 
+          ${coverSearchPage === totalPages - 1 ? 'disabled' : ''}
+        >
+          Next →
+        </button>
+      </div>
+    `;
     list.insertAdjacentHTML('beforeend', paginationHTML);
   }
 }
@@ -825,73 +776,30 @@ function changeCoverPage(direction) {
   displayCoverPage();
 }
 
-async function loadMoreCovers() {
-  const loadBtn = document.getElementById('loadMoreBtn');
-  if (loadBtn) {
-    loadBtn.disabled = true;
-    loadBtn.textContent = 'Loading...';
-  }
-  
-  try {
-    const params = new URLSearchParams();
-    if (coverSearchQuery) params.append('query', coverSearchQuery);
-    if (coverSearchIsbn) params.append('isbn', coverSearchIsbn);
-    params.append('offset', coverSearchResults.length);  // Send current count as offset
-    
-    const res = await fetch('search-covers?' + params);
-    const data = await res.json();
-    
-    if (data.covers && data.covers.length > 0) {
-      // Filter out duplicates by URL
-      const existingUrls = new Set(coverSearchResults.map(c => c.url));
-      const newCovers = data.covers.filter(c => !existingUrls.has(c.url));
-      
-      if (newCovers.length > 0) {
-        coverSearchResults = [...coverSearchResults, ...newCovers];
-        // Move to the next page (not the last page)
-        coverSearchPage += 1;
-        displayCoverPage();
-      } else {
-        // No new covers, just re-render
-        if (loadBtn) {
-          loadBtn.textContent = 'No more results';
-          loadBtn.disabled = true;
-        }
-      }
-    } else {
-      if (loadBtn) {
-        loadBtn.textContent = 'No more results';
-        loadBtn.disabled = true;
-      }
-    }
-  } catch (err) {
-    console.error(err);
-    if (loadBtn) {
-      loadBtn.textContent = 'Error loading';
-      loadBtn.disabled = true;
-    }
-  }
-}
-
 function closeCoverModal() {
   document.getElementById('coverModal').classList.add('hidden');
+}
+
+function selectCoverAt(index) {
+  const cover = coverSearchResults[index];
+  if (cover) selectCover(cover.url);
 }
 
 async function selectCover(url) {
   closeCoverModal();
   
   try {
-    const res = await fetch('fetch-cover', {
+    const res = await fetch('/fetch-cover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url, optimize: true })
+      body: JSON.stringify({ url, optimize: true })
     });
     
     if (res.ok) {
       const data = await res.json();
       currentCoverData = data.cover;
       document.getElementById('coverPreview').innerHTML = 
-        '<img src="data:image/jpeg;base64,' + data.cover + '" alt="Cover">';
+        `<img src="data:image/jpeg;base64,${data.cover}" alt="Cover">`;
       coverChanged = true;
       updateDiffPreview();
       updateOPDSPreview();
@@ -911,8 +819,8 @@ function getCurrentMetadata() {
   return {
     title: document.getElementById('title').value.trim(),
     subtitle: document.getElementById('subtitle').value.trim(),
-    author: authorValue,
-    authors: authorsArray.map(name => ({ name: name })),
+    author: authorValue, // Keep single string for backward compat
+    authors: authorsArray.map(name => ({ name })), // Array format for EPUB 3
     contributors: document.getElementById('contributors').value.trim(),
     language: document.getElementById('language').value.trim(),
     publisher: document.getElementById('publisher').value.trim(),
@@ -931,16 +839,21 @@ function updateDiffPreview() {
   const changes = [];
 
   // Compare relevant fields
-  const fieldsToCompare = ['title', 'subtitle', 'author', 'language', 'publisher', 'date', 'identifier', 
-                          'series', 'seriesIndex', 'description', 'rights', 'subjects'];
-  
+  const fieldsToCompare = ['title', 'subtitle', 'author', 'contributors', 'language', 'publisher', 'date',
+                          'identifier', 'series', 'seriesIndex', 'description', 'rights', 'subjects'];
+
   fieldsToCompare.forEach(key => {
     let oldVal = originalMetadata[key];
     let newVal = current[key];
-    
+
     // Handle authors array
     if (key === 'author' && Array.isArray(originalMetadata.authors)) {
       oldVal = originalMetadata.authors.map(a => typeof a === 'string' ? a : a.name).join(', ');
+    }
+
+    // Contributors come from the server as an array of { name, role } objects
+    if (key === 'contributors' && Array.isArray(oldVal)) {
+      oldVal = oldVal.map(c => typeof c === 'string' ? c : c.name).join(', ');
     }
     
     // Convert arrays to strings for comparison
@@ -982,19 +895,20 @@ function updateDiffPreview() {
     preview.classList.add('hidden');
   } else {
     preview.classList.remove('hidden');
-    preview.innerHTML = '\
-      <div class="diff-preview">\
-        <h4>Changes Preview</h4>\
-        ' + changes.map(c => '\
-          <div class="diff-item">\
-            <div class="diff-field">' + escapeHtml(c.field) + '</div>\
-            <div class="diff-values">\
-              ' + (c.old ? '<div class="diff-old">' + escapeHtml(c.old.substring(0, 100)) + (c.old.length > 100 ? '...' : '') + '</div>' : '') + '\
-              <div class="diff-new">' + escapeHtml(c.new.substring(0, 100)) + (c.new.length > 100 ? '...' : '') + '</div>\
-            </div>\
-          </div>\
-        ').join('') + '\
-      </div>';
+    preview.innerHTML = `
+      <div class="diff-preview">
+        <h4>📋 Changes Preview</h4>
+        ${changes.map(c => `
+          <div class="diff-item">
+            <div class="diff-field">${escapeHtml(c.field)}</div>
+            <div class="diff-values">
+              ${c.old ? `<div class="diff-old">${escapeHtml(c.old.substring(0, 100))}${c.old.length > 100 ? '...' : ''}</div>` : ''}
+              <div class="diff-new">${escapeHtml(c.new.substring(0, 100))}${c.new.length > 100 ? '...' : ''}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
   
   // Update OPDS preview
@@ -1013,24 +927,15 @@ function updateOPDSPreview() {
   const year = metadata.date ? metadata.date.substring(0, 4) : '';
   const publisher = metadata.publisher || '';
   const series = metadata.series || '';
-  const seriesIndex = metadata.seriesIndex ? '#' + metadata.seriesIndex : '';
+  const seriesIndex = metadata.seriesIndex ? `#${metadata.seriesIndex}` : '';
   const language = metadata.language || '';
   const subjects = metadata.subjects || [];
   const description = metadata.description || '';
   
-  // Format EPUB version for display in header
-  const versionDisplay = epubVersion ? 'EPUB ' + (epubVersion.startsWith('2') ? '2' : epubVersion.startsWith('3') ? '3' : epubVersion) : '';
-  
-  // Update the OPDS preview header with version
-  const opdsHeader = opdsPreview.parentElement.querySelector('.opds-preview-header');
-  if (opdsHeader) {
-    opdsHeader.innerHTML = '📚 OPDS Preview' + (versionDisplay ? '<span class="opds-header-version">' + versionDisplay + '</span>' : '');
-  }
-  
   // Build metadata line
   const metaParts = [];
   if (series) {
-    metaParts.push(series + (seriesIndex ? ' ' + seriesIndex : ''));
+    metaParts.push(`${series}${seriesIndex ? ' ' + seriesIndex : ''}`);
   }
   if (publisher) {
     metaParts.push(publisher);
@@ -1039,7 +944,7 @@ function updateOPDSPreview() {
     metaParts.push(year);
   }
   
-  const metaLine = metaParts.join(' - ') || 'No additional info';
+  const metaLine = metaParts.join(' • ') || 'No additional info';
   
   // Build subjects line - show all subjects
   const subjectsLine = subjects.length > 0 
@@ -1053,24 +958,25 @@ function updateOPDSPreview() {
   
   // Generate cover HTML
   const coverHTML = currentCoverData 
-    ? '<img src="data:image/jpeg;base64,' + currentCoverData + '" alt="Cover">' 
+    ? `<img src="data:image/jpeg;base64,${currentCoverData}" alt="Cover">` 
     : '<div class="opds-cover-placeholder">?</div>';
   
-  opdsPreview.innerHTML = '\
-    <div class="opds-item">\
-      <div class="opds-cover-mini">\
-        ' + coverHTML + '\
-      </div>\
-      <div class="opds-details">\
-        <div class="opds-title">' + escapeHtml(title) + '</div>\
-        ' + (subtitle ? '<div class="opds-subtitle">' + escapeHtml(subtitle) + '</div>' : '') + '\
-        <div class="opds-author">' + escapeHtml(author) + '</div>\
-        <div class="opds-meta">' + escapeHtml(metaLine) + '</div>\
-        ' + (language ? '<div class="opds-language">Language: ' + escapeHtml(language) + '</div>' : '') + '\
-        ' + (subjectsLine ? '<div class="opds-subjects">Categories: ' + escapeHtml(subjectsLine) + '</div>' : '') + '\
-        ' + (descPreview ? '<div class="opds-description">' + escapeHtml(descPreview) + '</div>' : '') + '\
-      </div>\
-    </div>';
+  opdsPreview.innerHTML = `
+    <div class="opds-item">
+      <div class="opds-cover-mini">
+        ${coverHTML}
+      </div>
+      <div class="opds-details">
+        <div class="opds-title">${escapeHtml(title)}</div>
+        ${subtitle ? `<div class="opds-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+        <div class="opds-author">${escapeHtml(author)}</div>
+        <div class="opds-meta">${escapeHtml(metaLine)}</div>
+        ${language ? `<div class="opds-language">Language: ${escapeHtml(language)}</div>` : ''}
+        ${subjectsLine ? `<div class="opds-subjects">Categories: ${escapeHtml(subjectsLine)}</div>` : ''}
+        ${descPreview ? `<div class="opds-description">${escapeHtml(descPreview)}</div>` : ''}
+      </div>
+    </div>
+  `;
 }
 
 function escapeHtml(text) {
@@ -1093,14 +999,14 @@ async function downloadEPUB() {
   try {
     const metadata = getCurrentMetadata();
     
-    const res = await fetch('download', {
+    const res = await fetch('/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sessionId: sessionId,
-        metadata: metadata,
+        sessionId,
+        metadata,
         cover: currentCoverData,
-        coverChanged: coverChanged
+        coverChanged
       })
     });
 
@@ -1108,23 +1014,16 @@ async function downloadEPUB() {
       throw new Error('Download failed');
     }
 
+    // Use the smart filename the server builds ("Title (Year) - Author.epub"),
+    // falling back to the original upload name
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const filenameMatch = disposition.match(/filename="([^"]*)"/);
+
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    
-    // Get filename from Content-Disposition header, fallback to generated name
-    let downloadFilename = uploadedFile.name;
-    const contentDisposition = res.headers.get('Content-Disposition');
-    if (contentDisposition) {
-      // Parse filename from header: attachment; filename="Title - Author.epub"
-      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
-      if (filenameMatch && filenameMatch[1]) {
-        downloadFilename = filenameMatch[1];
-      }
-    }
-    
-    a.download = downloadFilename;
+    a.download = filenameMatch?.[1] || uploadedFile.name;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -1133,6 +1032,6 @@ async function downloadEPUB() {
     alert('Failed to create EPUB');
   } finally {
     btn.disabled = false;
-    document.getElementById('downloadText').textContent = 'Download Cleaned EPUB';
+    document.getElementById('downloadText').textContent = '💾 Download Cleaned EPUB';
   }
 }

@@ -4,21 +4,6 @@ import path from "path";
 import sharp from "sharp";
 
 /**
- * Escape XML special characters to prevent malformed XML or injection
- * @param {string} str - String to escape
- * @returns {string} - XML-safe string
- */
-function escapeXml(str) {
-  if (!str || typeof str !== 'string') return str || '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-/**
  * Validate and sanitize metadata string input
  * @param {string} value - Input value
  * @param {number} maxLength - Maximum allowed length (default 10000)
@@ -152,15 +137,11 @@ export async function readEpub(buffer) {
   const opfXml = await zip.file(opfPath).async("string");
   const opf = await parseStringPromise(opfXml);
 
-  // Extract EPUB version from package element
-  const epubVersion = opf.package.$?.version || "2.0";
-
   return {
     zip,
     opfPath,
     opf,
-    meta: opf.package.metadata[0],
-    version: epubVersion
+    meta: opf.package.metadata[0]
   };
 }
 
@@ -170,7 +151,13 @@ export async function readEpub(buffer) {
  * Supports multiple titles with title-type refinements (EPUB 3)
  */
 export function extractMetadata(meta) {
-  const get = (k) => meta[k]?.[0]?._ ?? meta[k]?.[0] ?? "";
+  // Elements parsed with attributes come back as objects ({ _, $ });
+  // coerce to string so self-closing/attribute-only elements don't leak objects
+  const get = (k) => {
+    const v = meta[k]?.[0];
+    if (typeof v === 'string') return v;
+    return typeof v?._ === 'string' ? v._ : "";
+  };
 
   const getMetaProp = (prop) =>
     meta.meta?.find(m => m.$?.property === prop)?._ ?? "";
@@ -337,7 +324,7 @@ export function normalizeMetadata(metadata) {
       warnings.push(langResult.warning);
     }
     if (langResult.converted) {
-      warnings.push(`Language code converted: "${langResult.original}" Ã¢â€ â€™ "${langResult.code}"`);
+      warnings.push(`Language code converted: "${langResult.original}" → "${langResult.code}"`);
     }
   }
   
@@ -357,12 +344,13 @@ function normalizeDateFormat(dateStr) {
     return dateStr;
   }
   
-  // Try parsing various date formats
+  // Try parsing various date formats (use UTC getters — date-only strings
+  // parse as UTC midnight, so local getters can shift the day in western timezones)
   const date = new Date(dateStr);
   if (!isNaN(date.getTime())) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
   
@@ -522,11 +510,15 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
   // Do NOT upgrade version - preserve original
   // If it's EPUB 2, keep it as EPUB 2
 
-  // Helper to set a simple metadata element with sanitization
+  // Helper to set a simple metadata element with sanitization.
+  // undefined/null = "not edited" (leave as-is); empty string = clear the field.
   const set = (key, value) => {
-    if (!value) return;
-    const sanitized = sanitizeMetadataString(value);
-    if (!sanitized) return;
+    if (value === undefined || value === null) return;
+    const sanitized = sanitizeMetadataString(String(value));
+    if (!sanitized) {
+      delete meta[key];
+      return;
+    }
     meta[key] = [sanitized];
   };
 
@@ -669,6 +661,25 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
     }
   }
 
+  // Handle contributors - comma-separated names from the UI.
+  // Preserve existing entries (and their role attributes) for names that didn't change.
+  if (updates.contributors !== undefined) {
+    const names = String(updates.contributors)
+      .split(',')
+      .map(s => sanitizeMetadataString(s).trim())
+      .filter(Boolean);
+
+    if (names.length > 0) {
+      const existing = meta["dc:contributor"] || [];
+      meta["dc:contributor"] = names.map(name => {
+        const match = existing.find(c => String(c?._ ?? c).trim() === name);
+        return match ?? { _: name };
+      });
+    } else {
+      delete meta["dc:contributor"];
+    }
+  }
+
   // Handle identifier - PRESERVE existing identifiers, only add/update ISBN (Task 7A)
   if (updates.identifier) {
     const sanitizedId = sanitizeMetadataString(updates.identifier);
@@ -685,8 +696,6 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
     
     // Check if we're updating an existing ISBN or adding new
     let foundExistingISBN = false;
-    let updatedISBNIdAttr = null;  // Track the id of the updated/added ISBN
-    
     const updatedIdentifiers = existingArray.map(id => {
       const idAttr = id?.$?.id;
       const value = String(id?._ ?? id).trim();
@@ -700,22 +709,11 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
       
       if (isExistingISBN && (isISBN10 || isISBN13)) {
         foundExistingISBN = true;
-        updatedISBNIdAttr = idAttr || "pub-id";
-        
         // Update this ISBN identifier
-        // EPUB 3: Use id attribute only, no opf:scheme (use meta refinement instead)
-        // EPUB 2: Use opf:scheme attribute
-        if (!isEpub2) {
-          return {
-            _: sanitizedId,
-            $: { id: updatedISBNIdAttr }
-          };
-        } else {
-          return {
-            _: sanitizedId,
-            $: { id: idAttr, "opf:scheme": "ISBN" }
-          };
-        }
+        return {
+          _: sanitizedId,
+          $: { id: idAttr || "pub-id", ...(scheme ? { "opf:scheme": "ISBN" } : {}) }
+        };
       }
       
       // Preserve other identifiers as-is (ASIN, UUID, internal IDs) (Task 7A)
@@ -724,46 +722,32 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
     
     // If no existing ISBN found and we have a valid ISBN, add it
     if (!foundExistingISBN && (isISBN10 || isISBN13)) {
-      updatedISBNIdAttr = "pub-id";
+      const newIdAttr = "pub-id";
+      updatedIdentifiers.push({
+        _: sanitizedId,
+        $: { id: newIdAttr }
+      });
       
+      // Add EPUB 3 identifier-type refinement for the new ISBN (EPUB 3 only)
       if (!isEpub2) {
-        // EPUB 3: identifier with id, no opf:scheme
-        updatedIdentifiers.push({
-          _: sanitizedId,
-          $: { id: updatedISBNIdAttr }
-        });
-      } else {
-        // EPUB 2: identifier with opf:scheme
-        updatedIdentifiers.push({
-          _: sanitizedId,
-          $: { id: updatedISBNIdAttr, "opf:scheme": "ISBN" }
+        meta.meta = meta.meta.filter(m => 
+          !(m.$?.refines === `#${newIdAttr}` && m.$?.property === "identifier-type")
+        );
+        
+        meta.meta.push({
+          $: { 
+            refines: `#${newIdAttr}`, 
+            property: "identifier-type",
+            scheme: "onix:codelist5"
+          },
+          _: isISBN13 ? "15" : "02"
         });
       }
       
       // Only update unique-identifier if there wasn't one before
       if (!uniqueIdRef && pkg.$) {
-        pkg.$["unique-identifier"] = updatedISBNIdAttr;
+        pkg.$["unique-identifier"] = newIdAttr;
       }
-    }
-    
-    // Add/update EPUB 3 identifier-type refinement for the ISBN
-    // This applies to both NEW and UPDATED ISBNs
-    if (!isEpub2 && updatedISBNIdAttr && (isISBN10 || isISBN13)) {
-      // Remove any existing identifier-type refinement for this identifier
-      meta.meta = meta.meta.filter(m => 
-        !(m.$?.refines === `#${updatedISBNIdAttr}` && m.$?.property === "identifier-type")
-      );
-      
-      // Add proper EPUB 3 identifier-type refinement using ONIX codelist 5
-      // 15 = ISBN-13, 02 = ISBN-10
-      meta.meta.push({
-        $: { 
-          refines: `#${updatedISBNIdAttr}`, 
-          property: "identifier-type",
-          scheme: "onix:codelist5"
-        },
-        _: isISBN13 ? "15" : "02"
-      });
     }
     
     meta["dc:identifier"] = updatedIdentifiers;
@@ -774,10 +758,15 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
     warnings.push("Warning: EPUB requires at least one identifier (dc:identifier)");
   }
 
-  if (updates.subjects?.length) {
-    meta["dc:subject"] = updates.subjects.map(s => ({ 
-      _: sanitizeMetadataString(s) 
-    }));
+  if (Array.isArray(updates.subjects)) {
+    if (updates.subjects.length > 0) {
+      meta["dc:subject"] = updates.subjects.map(s => ({
+        _: sanitizeMetadataString(s)
+      }));
+    } else {
+      // Empty array means the user cleared all subjects
+      delete meta["dc:subject"];
+    }
   }
 
   // Initialize meta array if it doesn't exist
@@ -826,23 +815,26 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
       _: now
     });
   } else {
-    // EPUB 2: Use calibre-style series meta tags if series is provided
-    if (updates.series) {
+    // EPUB 2: Use calibre-style series meta tags
+    // (undefined = untouched; empty string = clear the series)
+    if (updates.series !== undefined) {
       // Remove existing calibre series tags
-      meta.meta = meta.meta.filter(m => 
-        m.$?.name !== "calibre:series" && 
+      meta.meta = meta.meta.filter(m =>
+        m.$?.name !== "calibre:series" &&
         m.$?.name !== "calibre:series_index"
       );
-      
+
       const sanitizedSeries = sanitizeMetadataString(updates.series);
-      meta.meta.push({
-        $: { name: "calibre:series", content: sanitizedSeries }
-      });
-      
-      if (updates.seriesIndex) {
+      if (sanitizedSeries) {
         meta.meta.push({
-          $: { name: "calibre:series_index", content: String(updates.seriesIndex) }
+          $: { name: "calibre:series", content: sanitizedSeries }
         });
+
+        if (updates.seriesIndex) {
+          meta.meta.push({
+            $: { name: "calibre:series_index", content: String(updates.seriesIndex) }
+          });
+        }
       }
     }
   }
@@ -899,64 +891,14 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
         const opfDir = path.dirname(opfPath);
         const fullCoverPath = path.join(opfDir, coverPath).replace(/\\/g, '/');
         
-        // Check if the buffer is JPEG
+        // Update media type if converting to JPEG
         const isJpeg = coverBuffer[0] === 0xFF && coverBuffer[1] === 0xD8;
-        
         if (isJpeg) {
-          // Update media type
           coverItem.$["media-type"] = "image/jpeg";
-          
-          // Check if we need to rename the file (e.g., .png -> .jpg)
-          const currentExt = path.extname(coverPath).toLowerCase();
-          if (currentExt !== '.jpg' && currentExt !== '.jpeg') {
-            // Need to rename: delete old file and create with new extension
-            const newCoverPath = coverPath.replace(/\.[^.]+$/, '.jpg');
-            const newFullCoverPath = path.join(opfDir, newCoverPath).replace(/\\/g, '/');
-            
-            // Get just the filename parts for finding references
-            const oldFilename = path.basename(coverPath);
-            const newFilename = path.basename(newCoverPath);
-            
-            // Update references to the old cover in other files BEFORE deleting
-            // This ensures we can find all references while the old file still exists
-            const filesToCheck = Object.keys(zip.files).filter(f => 
-              !zip.files[f].dir && (f.endsWith('.html') || f.endsWith('.xhtml') || f.endsWith('.htm') || f.endsWith('.opf'))
-            );
-            
-            // Process all files in parallel and wait for completion
-            await Promise.all(filesToCheck.map(async (filePath) => {
-              try {
-                const file = zip.file(filePath);
-                if (file) {
-                  const content = await file.async('string');
-                  // Replace references to old filename with new filename
-                  // Use regex for global replacement to catch all occurrences
-                  if (content.includes(oldFilename)) {
-                    const updatedContent = content.split(oldFilename).join(newFilename);
-                    zip.file(filePath, updatedContent);
-                  }
-                }
-              } catch (e) {
-                console.error(`Error updating references in ${filePath}:`, e);
-              }
-            }));
-            
-            // Now delete old file and create new one
-            zip.remove(fullCoverPath);
-            
-            // Update manifest href
-            coverItem.$.href = newCoverPath;
-            
-            // Write new file with correct extension
-            zip.file(newFullCoverPath, coverBuffer);
-          } else {
-            // Extension is already correct, just replace the file
-            zip.file(fullCoverPath, coverBuffer);
-          }
-        } else {
-          // Not JPEG, just replace the file as-is
-          zip.file(fullCoverPath, coverBuffer);
         }
+        
+        // Replace the cover file
+        zip.file(fullCoverPath, coverBuffer);
       } else {
         // Add new cover if none exists
         const newCoverId = "cover-image";
@@ -995,5 +937,15 @@ export async function writeEpub(zip, opfPath, opf, updates, coverBuffer = null) 
   const builder = new Builder();
   zip.file(opfPath, builder.buildObject(opf));
 
-  return zip.generateAsync({ type: "nodebuffer" });
+  // EPUB spec: the mimetype entry must exist and be STORED (uncompressed).
+  // Re-set it with explicit STORE so the global DEFLATE below doesn't compress it.
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+  // Without an explicit compression option JSZip writes everything STORED,
+  // which roughly doubles output size for typical EPUBs.
+  return zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    compressionOptions: { level: 9 }
+  });
 }

@@ -2,6 +2,9 @@
   "name": "epub-cleaner",
   "type": "module",
   "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "fastify": "^4.27.0",
     "@fastify/multipart": "^8.2.0",
