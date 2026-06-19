@@ -52,3 +52,26 @@ jobs:
           SHA_TAG="${GITHUB_SHA::7}"
           docker push "$PUSH_IMAGE:latest"
           docker push "$PUSH_IMAGE:$SHA_TAG"
+
+  # Redeploy on the host after a successful main build. Runs against the host
+  # daemon via the mounted Docker socket; the deploy project (compose file +
+  # .env) is bind-mounted into the job by the runner. Pulls git.gjessing.io/...
+  # :latest — the image this workflow just pushed. (Repo is epub-editor; the
+  # deployed stack dir is epub-bookprep.)
+  deploy:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: docker
+    env:
+      DEPLOY_DIR: /home/gjessing/docker/epub-bookprep
+    steps:
+      - name: Registry auth
+        run: |
+          mkdir -p ~/.docker
+          auth=$(printf 'gjessing1:%s' "${{ secrets.REGISTRY_TOKEN }}" | base64 -w0)
+          printf '{"auths":{"git.gjessing.io":{"auth":"%s"}}}' "$auth" > ~/.docker/config.json
+      - name: Pull and restart
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose pull
+          docker compose up -d --remove-orphans
