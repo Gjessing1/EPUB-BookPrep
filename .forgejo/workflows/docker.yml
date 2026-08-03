@@ -26,19 +26,31 @@ env:
   PUSH_IMAGE: localhost:3000/gjessing1/epub-editor
 
 jobs:
-  build-and-push:
+  # Build, push and deploy in ONE job. A separate `needs:` deploy job would have to
+  # queue for a second turn on this instance's single capacity-1 runner (shared by
+  # every repo, and often held by atlas's 30-50 minute builds). If a new commit lands
+  # during that wait, Forgejo auto-cancels the previous run's still-queued job and the
+  # deploy is silently skipped, leaving a stale container behind a green run.
+  build-and-deploy:
     runs-on: docker
+    env:
+      # Deploy project (compose file + .env), bind-mounted into the job by the runner.
+      # Repo is epub-editor; the deployed stack dir is epub-bookprep.
+      DEPLOY_DIR: /home/gjessing/docker/epub-bookprep
     steps:
       - uses: actions/checkout@v4
 
       # Written directly instead of `docker login`: login pings the registry
       # from the job container (where localhost:3000 is unreachable), but the
-      # push runs on the host daemon (where it works).
+      # push runs on the host daemon (where it works). Both hostnames are authed
+      # here — pushes go to localhost:3000, the deploy's compose pull to
+      # git.gjessing.io.
       - name: Registry auth
         run: |
           mkdir -p ~/.docker
           auth=$(printf 'gjessing1:%s' "${{ secrets.REGISTRY_TOKEN }}" | base64 -w0)
-          printf '{"auths":{"localhost:3000":{"auth":"%s"}}}' "$auth" > ~/.docker/config.json
+          printf '{"auths":{"localhost:3000":{"auth":"%s"},"git.gjessing.io":{"auth":"%s"}}}' \
+            "$auth" "$auth" > ~/.docker/config.json
 
       - name: Build image
         run: |
@@ -53,25 +65,27 @@ jobs:
           docker push "$PUSH_IMAGE:latest"
           docker push "$PUSH_IMAGE:$SHA_TAG"
 
-  # Redeploy on the host after a successful main build. Runs against the host
-  # daemon via the mounted Docker socket; the deploy project (compose file +
-  # .env) is bind-mounted into the job by the runner. Pulls git.gjessing.io/...
-  # :latest — the image this workflow just pushed. (Repo is epub-editor; the
-  # deployed stack dir is epub-bookprep.)
-  deploy:
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main'
-    runs-on: docker
-    env:
-      DEPLOY_DIR: /home/gjessing/docker/epub-bookprep
-    steps:
-      - name: Registry auth
-        run: |
-          mkdir -p ~/.docker
-          auth=$(printf 'gjessing1:%s' "${{ secrets.REGISTRY_TOKEN }}" | base64 -w0)
-          printf '{"auths":{"git.gjessing.io":{"auth":"%s"}}}' "$auth" > ~/.docker/config.json
+      # Redeploy on the host, against the host daemon via the mounted Docker socket.
+      # Pulls git.gjessing.io/...:latest — the image just pushed above. Guarded on
+      # main because workflow_dispatch can fire from any branch.
       - name: Pull and restart
+        if: github.ref == 'refs/heads/main'
         run: |
           cd "$DEPLOY_DIR"
           docker compose pull
           docker compose up -d --remove-orphans
+
+      # Fail loudly if the stack came back on the old image, so a lost deploy shows up
+      # as a red run instead of a green one with a stale container.
+      - name: Verify deploy
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd "$DEPLOY_DIR"
+          built=$(docker image inspect --format '{{.Id}}' "$IMAGE:latest")
+          running=$(docker compose ps -q | xargs -r docker inspect --format '{{.Image}}')
+          if ! printf '%s\n' "$running" | grep -qFx "$built"; then
+            echo "no running container uses the image just built ($built)" >&2
+            docker compose ps >&2
+            exit 1
+          fi
+          echo "deployed $built"
