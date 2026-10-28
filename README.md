@@ -1,83 +1,77 @@
-<p align="center">
-  <img src="/examples/Heading.png" width="40%">
-</p>
-
 # EPUB BookPrep
-EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing clean, standards-compliant EPUB metadata. Upload a file, make precise edits, and download a corrected EPUB, no accounts, no background processing, and no files stored on the server.
 
-- Simple install with Docker image available.
-- No configuration necessary
+A self-hosted web app for editing EPUB metadata and covers before adding a book to your library. Upload an EPUB, adjust its details, review the changes, and download the updated file. No account or database is needed.
 
-*The project is inspired by [BentoPDF](https://github.com/mgmeyers/bentopdf) in both philosophy and workflow.*
+![Desktop editor showing a sample book's cover, metadata fields, lookup controls, and OPDS preview](examples/screenshots/desktop-editor.png)
+
+## What it does
+
+- Edit titles, authors, contributors, language, publication date, publisher, series, identifiers, summaries, and categories.
+- Look up metadata by ISBN or title, then apply all fields or choose individual fields.
+- Upload a cover or search for alternatives. Compress covers by resizing and converting them to JPEG.
+- Clean whitespace, normalize dates and language codes, strip HTML from summaries, and remove duplicate categories.
+- Preview a book's details as an OPDS entry and review field changes before downloading.
+- Work with EPUB 2 and EPUB 3 files, on desktop or mobile, in light or dark mode.
+
+The focus is metadata and covers. For editing chapters, layout, or book structure, use an authoring tool such as Sigil or Calibre.
+
+## Screenshots
+
+The screenshots use a fictional sample book, *The Lantern Coast*.
+
+**Review changes before downloading**
+
+The change preview shows the original and edited values. Here, the publication date, series position, and categories have been updated in dark mode.
+
+![Dark mode showing the original and updated metadata values and the download button](examples/screenshots/desktop-changes-dark.png)
+
+**On mobile**
+
+The cover and OPDS preview appear above the metadata fields on smaller screens.
 
 <p>
-  <img src="https://img.shields.io/github/v/release/gjessing1/epub-bookprep" alt="Latest release">
-  <img src="https://img.shields.io/github/stars/gjessing1/epub-bookprep?style=social" alt="GitHub stars">
+  <img src="examples/screenshots/mobile-cover.png" alt="Mobile light mode showing the sample cover, cover actions, and OPDS preview" width="43%">
+  <img src="examples/screenshots/mobile-editor-dark.png" alt="Mobile dark mode showing title, author, language, publication date, and metadata lookup fields" width="43%">
 </p>
 
-## Live demo (temporary)
-A public demo is available for testing and evaluation:
+## Using it
 
-👉 **[Try the demo](https://gjessing.io/epub/demo/)**
+1. Drop an `.epub` file into the upload area, or click to browse.
+2. Edit its metadata. Optionally look up missing details, replace the cover, or use **Clean Data**.
+3. Check the OPDS and change previews.
+4. Select **Download Cleaned EPUB**, then import the result into your library or reader.
 
-The demo is intended for light, manual testing only.  
-Uploaded files are processed in memory and are not stored, but availability and uptime are not guaranteed.  
-For regular use, self-hosting via Docker is recommended.
+A [temporary public demo](https://gjessing.io/epub/demo/) is available for light, manual testing. Availability is not guaranteed.
 
-## Features
-- Inspect and edit common EPUB metadata fields  
-  (title, author, language, publisher, series, identifiers, description)
-- Fetch metadata from public sources using ISBN or title-based search
-- Review and selectively apply fetched metadata to avoid incorrect matches
-- Search for available cover images, preview alternatives, and explicitly choose whether to replace or keep the existing cover
-- Clean and normalize metadata:
-  - trim whitespace
-  - normalize date formats
-  - strip HTML from descriptions
-  - deduplicate subjects
-- Preview how metadata will appear in OPDS-based clients before importing into a library or reader
-- EPUB 3 editor with EPUB 2 backward compatability
-- Extremely lightweight: the Docker container uses under 30 MB of host memory, as all processing happens in the browser.
-- Light and dark mode support
+## Run with Docker
 
-## Screenshots (Mobile view)
-<p align="left">
-  <img src="/examples/First-example.png" alt="Mobile view" width="18%">
-  <img src="/examples/Second-example.png" alt="Mobile view" width="18%">
-  <img src="/examples/Third-example.png" alt="Mobile view" width="18%">
-  <img src="/examples/Fourth-example.png" alt="Mobile view" width="18%">
-  <img src="/examples/Fifth-example.png" alt="Mobile view" width="18%">
-</p>
+Save the example [`docker-compose.yml`](examples/docker-compose.yml), then run this command from the same directory:
 
-## Key principles
-- Uploaded files are processed entirely in memory and are never stored on disk. Once a request completes, no files or metadata remain on the server.
-- The app only modifies EPUB metadata (OPF and related fields). Book content, structure, and reading experience are left untouched.
-- The tool avoids deep EPUB “repair” or content manipulation to ensure results are easy to understand and trust.
-- Only EPUB files are supported. Other ebook formats are intentionally out of scope.
-- The application runs out of the box with no required configuration or environment variables.
+```bash
+docker compose up -d
+```
 
-## What this tool is not
-Not an ebook library manager
-Not a reader application
-Not a full EPUB editor or authoring tool
-Not a replacement for Calibre or Sigil
+Open [http://localhost:3007](http://localhost:3007). No volumes or environment variables are required. You can also put the app behind a reverse proxy such as Caddy, Traefik, or Nginx.
 
-## Typical use case
-Upload an EPUB file
-- Inspect and adjust metadata (title, author, language, series, cover, etc.)
-- Optionally enrich metadata from public sources
-- Download a cleaned EPUB
-- Import the result into your library or reader of choice
+## Run from source
 
-## Deployment
-The application is distributed as a Docker container and can be run either behind a reverse proxy or directly via a mapped port. No volumes are required, as uploaded files are processed entirely in memory and never persisted.
+With Node.js and npm installed:
 
-- Download the example compose file: [`docker-compose.yml`](/examples/docker-compose.yml)
-- Start the service from the same directory:
-  ```bash
-  docker compose up -d
-- The application listens on port 3007 by default.
-- Access it via http://localhost:3007, or expose it through a reverse proxy such as Caddy, Traefik, or Nginx
+```bash
+npm ci
+npm start
+```
 
-## Found a bug or missing a feature?
-- Found a bug or have an idea for an improvement? Open an issue in the repository and I’ll take a look.
+The server listens on port `3007` by default. Set `PORT` to use a different port.
+
+## File handling
+
+EPUB files are uploaded to the server and processed in memory. The server keeps each upload and its metadata in a temporary session for up to 30 minutes, with expired sessions removed by a cleanup task that runs every minute. Downloading a file leaves the session available for further edits until it expires. Restarting the server clears all sessions.
+
+Uploads are limited to 50 MB. The app does not write uploaded books to disk or require persistent storage. Metadata and cover lookups contact external services when requested.
+
+## Contributing
+
+Bug reports and suggestions are welcome through the repository's issues. For a bug report, include the steps to reproduce it and any error message.
+
+Inspired by [BentoPDF](https://github.com/mgmeyers/bentopdf) in philosophy and workflow. Licensed under the [MIT License](LICENSE).
