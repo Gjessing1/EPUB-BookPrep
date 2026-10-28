@@ -13,9 +13,6 @@ EPUB BookPrep is a selfhosted, privacy-first, stateless web tool for preparing c
 <p>
   <img src="https://img.shields.io/github/v/release/gjessing1/epub-bookprep" alt="Latest release">
   <img src="https://img.shields.io/github/stars/gjessing1/epub-bookprep?style=social" alt="GitHub stars">
-  <a href="https://buymeacoffee.com/gjessing">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="80" style="vertical-align: middle;">
-  </a>
 </p>
 
 ## Live demo (temporary)
@@ -84,14 +81,3 @@ The application is distributed as a Docker container and can be run either behin
 
 ## Found a bug or missing a feature?
 - Found a bug or have an idea for an improvement? Open an issue in the repository and I’ll take a look.
-
-## Like the project?
-Please consider buying me a coffe, I really do drink it alot!
-<p>
-  <a href="https://buymeacoffee.com/gjessing">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="80" style="vertical-align: middle;">
-  </a>
-</p>
-
-
-
