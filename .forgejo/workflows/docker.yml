@@ -36,7 +36,7 @@ jobs:
     env:
       # Deploy project (compose file + .env), bind-mounted into the job by the runner.
       # Repo is epub-editor; the deployed stack dir is epub-bookprep.
-      DEPLOY_DIR: /home/gjessing/docker/epub-bookprep
+      DEPLOY_DIR: /home/gjessing/docker/Media/epub-bookprep
     steps:
       - uses: actions/checkout@v4
 
